@@ -7,6 +7,8 @@
 #include <string>
 #include <map>
 
+class Memory;
+
 class Cartridge
 {
 
@@ -94,7 +96,13 @@ private:
 	//u16 checksum_complement;
 	//u16 checksum;
 
+	Memory* mem;
+
 public:
-	void LoadRom(OPENFILENAME gameDir);
+	Cartridge(Memory* mem) {
+		this->mem = mem;
+	}
+
+	bool LoadRom(OPENFILENAME gameDir);
 };
 

@@ -2,6 +2,7 @@
 #include "SDL_syswm.h"
 
 #include "Cartridge.h"
+#include "Memory.h"
 
 #include <iostream>
 #include <commdlg.h>
@@ -13,8 +14,11 @@ SDL_Texture* texture;
 SDL_Event event;
 
 bool running = true;
+bool snesRunning = false;
 
-void HandleInput();
+Memory memory;
+
+void handleInput();
 HMENU CreateMenuBar();
 
 int main(int argc, char* argv[]) {
@@ -31,6 +35,10 @@ int main(int argc, char* argv[]) {
 
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 224);
 
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+
     SDL_SetWindowTitle(win, "SupaNES");
     SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
@@ -42,6 +50,7 @@ int main(int argc, char* argv[]) {
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
+
     while (running) {
 
         // Main Loop
@@ -49,19 +58,21 @@ int main(int argc, char* argv[]) {
         
 
         // Events management
-        HandleInput();
+        handleInput();
 
-        // Graphics
-        SDL_RenderClear(renderer);
-        // TODO:
-        //  SDL_UpdateTexture
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
-        SDL_RenderPresent(renderer);
+        if (snesRunning) {
+            // Graphics
+            SDL_RenderClear(renderer);
+            // TODO:
+            //  SDL_UpdateTexture
+            SDL_RenderCopy(renderer, texture, NULL, NULL);
+            SDL_RenderPresent(renderer);
+        }
     }
     return 0;
 }
 
-void HandleInput() {
+void handleInput() {
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
 
@@ -93,8 +104,8 @@ void HandleInput() {
 
                         if (GetOpenFileName(&ofn) == TRUE) {
                             // TODO: Load ROM
-                            Cartridge cart;
-                            cart.LoadRom(ofn);
+                            Cartridge cart(&memory);
+                            snesRunning = cart.LoadRom(ofn);
                         }
                     }
 

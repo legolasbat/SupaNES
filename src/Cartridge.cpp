@@ -1,6 +1,8 @@
 #include "Cartridge.h"
 
-void Cartridge::LoadRom(OPENFILENAME gameDir) {
+#include "Memory.h"
+
+bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 	std::ifstream ifs;
 	ifs.open(gameDir.lpstrFile, std::ifstream::binary);
 	if (ifs.is_open()) {
@@ -22,7 +24,7 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 		}
 		else {
 			std::cout << "Invalid ROM" << std::endl;
-			return;
+			return false;
 		}
 		
 		// Differ LoROM and HiROM
@@ -49,7 +51,7 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 			}
 			else {
 				std::cout << "ROM type not handle" << std::endl;
-				return;
+				return false;
 			}
 		}
 
@@ -67,7 +69,7 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 		// Cartridge Version 2
 		if (t == 0) {
 			std::cout << "Cartridge Ver. 2 not handle" << std::endl;
-			return;
+			return false;
 		}
 
 		// Mapping Mode and Speed
@@ -91,7 +93,7 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 		if ((cartType & 0x0F) > 0x2) {
 			// TODO: coprocessors
 			std::cout << "Coprocessor not handle: " << ROM_coprocessor_string.at(cartType >> 8) << std::endl;
-			return;
+			return false;
 		}
 
 		// ROM Size
@@ -105,7 +107,9 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 		uint8_t ramSize = 0;
 		ifs.read((char*)&ramSize, sizeof(uint8_t));
 		std::cout << "- RAM Size: ";
-		int ramSizeByte = pow(2, ramSize) * 1024;
+		int ramSizeByte = 0;
+		if (ramSize != 0)
+			ramSizeByte = pow(2, ramSize) * 1024;
 		std::cout << ramSizeByte << " bytes" << std::endl;
 
 		// Region
@@ -120,7 +124,7 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 		ifs.read((char*)&devID, sizeof(uint8_t));
 		if (devID == 0x33) {
 			std::cout << "Cartridge Ver. 3 not handle" << std::endl;
-			return;
+			return false;
 		}
 
 		// Version
@@ -135,6 +139,11 @@ void Cartridge::LoadRom(OPENFILENAME gameDir) {
 
 		// TODO: Interrupt Vectors
 
+		// TODO: Initialize memory
+		mem->InitLoRom();
+
 		ifs.close();
 	}
+
+	return true;
 }
