@@ -35,7 +35,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		uint16_t checksum = 0;
 		ifs.read((char*)&checksumCom, sizeof(uint16_t));
 		ifs.read((char*)&checksum, sizeof(uint16_t));
-		if ((checksumCom ^ checksum) == 0xFFFF) {
+		if ((checksumCom ^ checksum) == 0xFFFF || fileSize < 0xFFC0) {
 			std::cout << "Correct checksum. LoROM" << std::endl;
 		}
 		else {
@@ -50,8 +50,9 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 				std::cout << "Correct checksum. HiROM" << std::endl;
 			}
 			else {
-				std::cout << "ROM type not handle" << std::endl;
-				return false;
+				std::cout << "ROM type not handle but..." << std::endl;
+				//return false;
+				headerDir = 0x7FC0 + offset;
 			}
 		}
 
@@ -140,10 +141,58 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		// TODO: Interrupt Vectors
 
 		// TODO: Initialize memory
-		mem->InitLoRom();
+		ROM.resize(romSizeByte);
+		ifs.seekg(offset);
+		ifs.read((char*)ROM.data(), ROM.size());
+
+		mem->SetRom(this);
 
 		ifs.close();
 	}
 
 	return true;
+}
+
+uint8_t Cartridge::ReadRom(uint16_t add)
+{
+	uint8_t bank = (add & 0x00FF0000) >> 16;
+	uint8_t page = (add & 0x0000FF00) >> 8;
+
+	uint8_t value = 0;
+
+	// Check bank range
+	if (bank != 0x7E && bank != 0x7F) {
+
+		//std::cout << (int)add << std::endl;
+		// Check page range
+
+		// Check top half
+		if (page >= 0x80) {
+			// ROM
+			if (bank >= 0x80) {
+
+			}
+			// Mirror ROM
+			else {
+				value = ROM.at(add - 0x8000);
+			}
+		}
+		// Check bottom half
+		else if (page < 0x80) {
+			// SRAM 2Q
+			if (bank >= 0x40 && bank < 0x7E) {
+				std::cout << "SRAM not handled" << std::endl;
+			}
+			// ROM bottom half 4Q
+			else if (bank >= 0xC0 && bank < 0xF0) {
+
+			}
+			// SRAM 4Q
+			else if (bank >= 0xF0) {
+				std::cout << "SRAM not handled" << std::endl;
+			}
+		}
+	}
+
+	return value;
 }

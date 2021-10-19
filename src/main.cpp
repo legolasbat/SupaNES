@@ -16,7 +16,9 @@ SDL_Event event;
 bool running = true;
 bool snesRunning = false;
 
-Memory memory;
+Memory* memory;
+Cartridge* cart;
+CPURicoh* cpu;
 
 void handleInput();
 HMENU CreateMenuBar();
@@ -50,12 +52,16 @@ int main(int argc, char* argv[]) {
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
+    cpu = new CPURicoh();
+    memory = new Memory(cpu);
+    cart = new Cartridge(memory);
 
     while (running) {
 
         // Main Loop
-
-        
+        if (snesRunning) {
+            cpu->Clock();
+        }        
 
         // Events management
         handleInput();
@@ -103,9 +109,7 @@ void handleInput() {
                         ofn.Flags = OFN_DONTADDTORECENT | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
                         if (GetOpenFileName(&ofn) == TRUE) {
-                            // TODO: Load ROM
-                            Cartridge cart(&memory);
-                            snesRunning = cart.LoadRom(ofn);
+                            snesRunning = cart->LoadRom(ofn);
                         }
                     }
 

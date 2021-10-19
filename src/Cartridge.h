@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <vector>
 
 class Memory;
 
@@ -76,27 +77,9 @@ private:
 		{0x11, "Australia"}
 	};
 
-	//u8 header_version;
-	//string game_title;
-	//ROM_chipset rom_chipset;
-	//ROM_coprocessor rom_coprocessor;
-	//u8 rom_size;			//	size bits
-	//u8 sram_size;			//	size bits
-	//u32 rom_real_size;		//	size in bytes
-	//u32 sram_real_size;		//	size in bytes
-	//u8 flash_size_v3_header;
-	//u32 flash_real_size_v3_header;
-	//u8 xram_size_v3_header;
-	//u32 xram_real_size_v3_header;
-	//u8 region;
-	//u8 dev_id;
-	//string dev_id_v3_header;
-	//string game_code_v3_header;
-	//u8 version;
-	//u16 checksum_complement;
-	//u16 checksum;
-
 	Memory* mem;
+
+	std::vector<uint8_t> ROM;
 
 public:
 	Cartridge(Memory* mem) {
@@ -104,5 +87,7 @@ public:
 	}
 
 	bool LoadRom(OPENFILENAME gameDir);
+
+	uint8_t ReadRom(uint16_t add);
 };
 

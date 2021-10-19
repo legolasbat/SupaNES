@@ -1,8 +1,8 @@
 #include "Memory.h"
 
-void Memory::InitLoRom()
-{
-	std::cout << "Initializing memory of type LoROM..." << std::endl;
+Memory::Memory(CPURicoh* cpu) {
+	this->cpu = cpu;
+	cpu->SetMemory(this);
 }
 
 uint8_t Memory::ReadMemory(uint32_t add)
@@ -55,6 +55,9 @@ uint8_t Memory::ReadMemoryQ1(uint32_t add)
 	if (page < 0x20) {
 		value = WRAM[add & 0x1FFF];
 	}
+	else if (page >= 0x80) {
+		value = cart->ReadRom(add);
+	}
 	return value;
 }
 
@@ -65,6 +68,9 @@ uint8_t Memory::ReadMemoryQ2(uint32_t add)
 	// WRAM
 	if (bank == 0x7E || bank == 0x7F) {
 		value = WRAM[add - 0x7E0000];
+	}
+	else {
+		value = cart->ReadRom(add);
 	}
 
 	return value;
@@ -78,13 +84,20 @@ uint8_t Memory::ReadMemoryQ3(uint32_t add)
 	if (page < 0x20) {
 		value = WRAM[add & 0x1FFF];
 	}
+	else if (page >= 0x80) {
+		value = cart->ReadRom(add);
+	}
 
 	return value;
 }
 
 uint8_t Memory::ReadMemoryQ4(uint32_t add)
 {
-	return uint8_t();
+	uint8_t value = 0;
+
+	value = cart->ReadRom(add);
+
+	return value;
 }
 
 void Memory::WriteMemoryQ1(uint32_t add, uint8_t value)

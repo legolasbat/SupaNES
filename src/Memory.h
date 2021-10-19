@@ -1,12 +1,17 @@
 #pragma once
 
 #include "Cartridge.h"
+#include "CPURicoh.h"
 
 class Memory
 {
 public:
 
-	void InitLoRom();
+	Memory(CPURicoh* cpu);
+
+	void SetRom(Cartridge* cart) {
+		this->cart = cart;
+	}
 
 	uint8_t ReadMemory(uint32_t add);
 	void WriteMemory(uint32_t add, uint8_t value);
@@ -14,6 +19,9 @@ public:
 private:
 	
 	uint8_t WRAM[0x20000];
+
+	Cartridge* cart;
+	CPURicoh* cpu;
 
 	uint8_t bank = 0;
 	uint8_t page = 0;
