@@ -50,7 +50,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 				std::cout << "Correct checksum. HiROM" << std::endl;
 			}
 			else {
-				std::cout << "ROM type not handle but..." << std::endl;
+				std::cout << "ROM type not handled but..." << std::endl;
 				//return false;
 				headerDir = 0x7FC0 + offset;
 			}
@@ -69,7 +69,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		std::cout << std::endl;
 		// Cartridge Version 2
 		if (t == 0) {
-			std::cout << "Cartridge Ver. 2 not handle" << std::endl;
+			std::cout << "Cartridge Ver. 2 not handled" << std::endl;
 			return false;
 		}
 
@@ -93,7 +93,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 
 		if ((cartType & 0x0F) > 0x2) {
 			// TODO: coprocessors
-			std::cout << "Coprocessor not handle: " << ROM_coprocessor_string.at(cartType >> 8) << std::endl;
+			std::cout << "Coprocessor not handled: " << ROM_coprocessor_string.at(cartType >> 8) << std::endl;
 			return false;
 		}
 
@@ -124,7 +124,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		uint8_t devID = 0;
 		ifs.read((char*)&devID, sizeof(uint8_t));
 		if (devID == 0x33) {
-			std::cout << "Cartridge Ver. 3 not handle" << std::endl;
+			std::cout << "Cartridge Ver. 3 not handled" << std::endl;
 			return false;
 		}
 

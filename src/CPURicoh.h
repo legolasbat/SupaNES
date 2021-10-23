@@ -44,6 +44,8 @@ private:
 	// Processor Status
 	uint8_t P;
 
+	uint8_t NMI = 0xc2;
+
 	bool emulationMode;
 
 	uint8_t opcode = 0;
@@ -51,13 +53,18 @@ private:
 
 	Memory* mem;
 
-	uint8_t ReadMemory(uint32_t add);
-	void WriteMemory(uint32_t add, uint8_t value);
+	uint8_t ReadMemory(uint32_t add, bool isLong);
+	void WriteMemory(uint32_t add, uint8_t value, bool isLong);
+
+	uint8_t Pull();
+	void Push(uint8_t value);
 
 	int Execute();
 
-	void CheckNFlag(uint16_t value);
-	void CheckZFlag(uint16_t value);
+	void CheckNFlag(uint16_t value, bool isA, bool isX);
+	void CheckVFlag(uint16_t value, uint16_t prevValue, uint16_t operant, bool isSub);
+	void CheckZFlag(uint16_t value, bool isA, bool isX);
+	void CheckCFlag(uint16_t value, uint16_t prevValue, bool isSub);
 
 public:
 
@@ -71,5 +78,7 @@ public:
 		this->mem = mem;
 	}
 
+	uint8_t ReadCPU(uint32_t add);
+	void WriteCPU(uint32_t add, uint8_t value);
 };
 

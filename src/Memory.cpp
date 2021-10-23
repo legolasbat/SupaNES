@@ -33,6 +33,10 @@ void Memory::WriteMemory(uint32_t add, uint8_t value)
 	bank = (add & 0x00FF0000) >> 16;
 	page = (add & 0x0000FF00) >> 8;
 
+	if (add == 0x4210) {
+		std::cout << (int)value << std::endl;
+	}
+
 	if (bank < 0x40) {
 		WriteMemoryQ1(add, value);
 	}
@@ -53,7 +57,16 @@ uint8_t Memory::ReadMemoryQ1(uint32_t add)
 
 	// WRAM
 	if (page < 0x20) {
-		value = WRAM[add & 0x1FFF];
+		value = WRAM[add];
+	}
+	else if (page == 0x21) {
+		
+	}
+	else if (page == 0x40) {
+
+	}
+	else if (page == 0x42 || page == 0x43) {
+		value = cpu->ReadCPU(add);
 	}
 	else if (page >= 0x80) {
 		value = cart->ReadRom(add);
@@ -82,7 +95,16 @@ uint8_t Memory::ReadMemoryQ3(uint32_t add)
 
 	// WRAM
 	if (page < 0x20) {
-		value = WRAM[add & 0x1FFF];
+		value = WRAM[0x1FFF & add];
+	}
+	else if (page == 0x21) {
+
+	}
+	else if (page == 0x40) {
+
+	}
+	else if (page == 0x42 || page == 0x43) {
+		value = cpu->ReadCPU(add);
 	}
 	else if (page >= 0x80) {
 		value = cart->ReadRom(add);
@@ -104,7 +126,16 @@ void Memory::WriteMemoryQ1(uint32_t add, uint8_t value)
 {
 	// WRAM
 	if (page < 0x20) {
-		WRAM[add & 0x1FFF] = value;
+		WRAM[add] = value;
+	}
+	else if (page == 0x21) {
+
+	}
+	else if (page == 0x40) {
+
+	}
+	else if (page == 0x42 || page == 0x43) {
+		cpu->WriteCPU(add, value);
 	}
 }
 
@@ -120,7 +151,16 @@ void Memory::WriteMemoryQ3(uint32_t add, uint8_t value)
 {
 	// WRAM
 	if (page < 0x20) {
-		WRAM[add & 0x1FFF] = value;
+		WRAM[0x1FFF & add] = value;
+	}
+	else if (page == 0x21) {
+
+	}
+	else if (page == 0x40) {
+
+	}
+	else if (page == 0x42 || page == 0x43) {
+		cpu->WriteCPU(add, value);
 	}
 }
 
