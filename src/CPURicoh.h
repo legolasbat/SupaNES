@@ -62,7 +62,6 @@ private:
 	int Execute();
 
 	void CheckNFlag(uint16_t value, bool isA, bool isX);
-	void CheckVFlag(uint16_t value, uint16_t prevValue, uint16_t operant, bool isSub);
 	void CheckZFlag(uint16_t value, bool isA, bool isX);
 	void CheckCFlag(uint16_t value, uint16_t prevValue, bool isSub);
 

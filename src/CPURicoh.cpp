@@ -126,8 +126,8 @@ void CPURicoh::Debug() {
 	lines++;
 
 	if (lines >= 22845) {
-		fclose(stdout);
 		std::cout << " " << std::endl;
+		fclose(stdout);
 	}
 	std::cout << " " << std::endl;
 }
@@ -4077,50 +4077,6 @@ void CPURicoh::CheckNFlag(uint16_t value, bool isA, bool isX) {
 			P &= ~NFlag;
 		}
 	}	
-}
-
-void CPURicoh::CheckVFlag(uint16_t value, uint16_t prevValue, uint16_t operant, bool isSub) {
-	if (isSub) {
-
-		// 8-Bit
-		if (P & MFlag) {
-			if (((prevValue & 0x80) && !(operant & 0x80) && (value & 0x80)) || (!(prevValue & 0x80) && (operant & 0x80) && !(value & 0x80))) {
-				P |= VFlag;
-			}
-			else {
-				P &= ~VFlag;
-			}
-		}
-		// 16-Bit
-		else {
-			if (((prevValue & 0x8000) && !(operant & 0x8000) && (value & 0x8000)) || (!(prevValue & 0x8000) && (operant & 0x8000) && !(value & 0x8000))) {
-				P |= VFlag;
-			}
-			else {
-				P &= ~VFlag;
-			}
-		}
-	}
-	else {
-		// 8-Bit
-		if (P & MFlag) {
-			if (((prevValue & 0x80) && (operant & 0x80) && !(value & 0x80)) || (!(prevValue & 0x80) && !(operant & 0x80) && (value & 0x80))) {
-				P |= VFlag;
-			}
-			else {
-				P &= ~VFlag;
-			}
-		}
-		// 16-Bit
-		else {
-			if (((prevValue & 0x8000) && (operant & 0x8000) && !(value & 0x8000)) || (!(prevValue & 0x8000) && !(operant & 0x8000) && (value & 0x8000))) {
-				P |= VFlag;
-			}
-			else {
-				P &= ~VFlag;
-			}
-		}
-	}
 }
 
 void CPURicoh::CheckZFlag(uint16_t value, bool isA, bool isX) {
