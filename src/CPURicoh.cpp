@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestAND.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestASL.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 13447) {
+	if (lines >= 5498) {
 		std::cout << " " << std::endl;
 		fclose(stdout);
 	}
@@ -222,10 +222,68 @@ int CPURicoh::Execute() {
 		break;
 
 		// ASL dp
-	case 0x06:
+	case 0x06: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, value, true);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// ORA [dp]
 	case 0x07:
 
@@ -244,10 +302,51 @@ int CPURicoh::Execute() {
 		break;
 
 		// ASL A
-	case 0x0A:
+	case 0x0A: {
 
-		break;
+		uint16_t prevA = A;
 
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = A & 0xFF;
+			A &= 0xFF00;
+			A |= (l << 1) & 0xFF;
+
+			if (prevA & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+			A <<= 1;
+
+			if (prevA & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((A & 0xFF) == 0)) || (!M && (A == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((A & 0xFF) & 0x80)) || (!M && (A & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		return 2;
+	}
 		// PHD
 	case 0x0B:
 
@@ -264,10 +363,62 @@ int CPURicoh::Execute() {
 		break;
 
 		// ASL addr
-	case 0x0E:
+	case 0x0E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, value, false);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return M ? 6 : 8;
+	}
 		// ORA long
 	case 0x0F:
 
@@ -320,10 +471,69 @@ int CPURicoh::Execute() {
 		break;
 
 		// ASL dp, X
-	case 0x16:
+	case 0x16: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+		add += X;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, value, true);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// ORA [dp], Y
 	case 0x17:
 
@@ -367,10 +577,63 @@ int CPURicoh::Execute() {
 		break;
 
 		// ASL addr, X
-	case 0x1E:
+	case 0x1E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		uint16_t value = ReadMemory(add, false);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, value, false);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return M ? 7 : 9;
+	}
 		// ORA long, X
 	case 0x1F:
 
