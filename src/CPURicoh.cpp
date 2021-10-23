@@ -486,10 +486,9 @@ int CPURicoh::Execute() {
 		// AND #const
 	case 0x29: {
 
-		uint16_t value = ReadMemory(PC++, false);
+		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
 		if (!(P & MFlag)) {
-			value |= ReadMemory(PC++, false) << 8;
 
 			A &= value;
 
@@ -540,14 +539,10 @@ int CPURicoh::Execute() {
 		// BIT addr
 	case 0x2C: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-
-		uint16_t value = ReadMemory(add, false);
+		uint16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 		uint16_t result;
 
 		if (!(P & MFlag)) {
-			value |= ReadMemory(add + 1, false) << 8;
 
 			if (value & 0x8000) {
 				P |= NFlag;
@@ -923,128 +918,11 @@ int CPURicoh::Execute() {
 		// ADC (dp, X)
 	case 0x61: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= DP << 8;
-		indAdd += X;
+		ADC(value);
 
-		int c = 0;
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		uint16_t add = ReadMemory(indAdd, true);
-		add |= ReadMemory(indAdd + 1, true) << 8;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 6 + c;
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
 		// PER label
 	case 0x62:
@@ -1054,116 +932,9 @@ int CPURicoh::Execute() {
 		// ADC sr, S
 	case 0x63: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::StackRelative, !(P & MFlag));
 
-		uint16_t add = ReadMemory(PC++, false);
-		add += SP;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
+		ADC(value);
 
 		return !(P & MFlag) ? 5 : 4;
 	}
@@ -1175,125 +946,11 @@ int CPURicoh::Execute() {
 		// ADC dp
 	case 0x65: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 
-		uint16_t add = ReadMemory(PC++, false);
+		ADC(value);
 
-		add |= DP << 8;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		int c = 0;
-
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 3 + c;
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
 	}
 		// ROR dp
 	case 0x66:
@@ -1303,128 +960,11 @@ int CPURicoh::Execute() {
 		// ADC [dp]
 	case 0x67: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= DP << 8;
+		ADC(value);
 
-		int c = 0;
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		uint32_t add = ReadMemory(indAdd, true);
-		add |= ReadMemory(indAdd + 1, true) << 8;
-		add |= ReadMemory(indAdd + 2, true) << 16;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 6 + c;
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
 		// PLA
 	case 0x68:
@@ -1471,115 +1011,9 @@ int CPURicoh::Execute() {
 		// ADC #const
 	case 0x69: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
-		int16_t value;
-
-		value = ReadMemory(PC++, false);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(PC++, false) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(PC++, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-		
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
+		ADC(value);
 
 		return !(P & MFlag) ? 3 : 2;
 	}
@@ -1601,116 +1035,9 @@ int CPURicoh::Execute() {
 		// ADC addr
 	case 0x6D: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-
-		int16_t value = ReadMemory(add, false);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
+		ADC(value);
 
 		return !(P & MFlag) ? 5 : 4;
 	}
@@ -1722,117 +1049,9 @@ int CPURicoh::Execute() {
 		// ADC long
 	case 0x6F: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
 
-		uint32_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		add |= ReadMemory(PC++, false) << 16;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
+		ADC(value);
 
 		return !(P & MFlag) ? 6 : 5;
 	}
@@ -1844,375 +1063,27 @@ int CPURicoh::Execute() {
 		// ADC (dp), Y
 	case 0x71: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= DP << 8;
+		ADC(value);
 
-		int c = 0;
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		uint16_t add = ReadMemory(indAdd, true);
-		add |= ReadMemory(indAdd + 1, true) << 8;
-		
-		if ((P & XFlag) || ((add & 0xFF00) != ((add + Y) & 0xFF00))) {
-			c++;
-		}
-		add += Y;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 6 + c;
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
 	}
 		// ADC (dp)
 	case 0x72: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::DirectIndirect, !(P & MFlag));
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= DP << 8;
+		ADC(value);
 
-		int c = 0;
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		uint16_t add = ReadMemory(indAdd, true);
-		add |= ReadMemory(indAdd + 1, true) << 8;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 5 + c;
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
 	}
 		// ADC (sr, S), Y
 	case 0x73: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd += SP;
-
-		uint16_t add = ReadMemory(indAdd, true);
-		add |= ReadMemory(indAdd + 1, true) << 8;
-		add += Y;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
+		ADC(value);
 
 		return !(P & MFlag) ? 8 : 7;
 	}
@@ -2224,130 +1095,12 @@ int CPURicoh::Execute() {
 		// ADC dp, X
 	case 0x75: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
 
-		uint16_t add = ReadMemory(PC++, false);
+		ADC(value);
 
-		add |= DP << 8;
-		add += X;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		int c = 0;
-
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 4 + c;
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
-
-		break;
-
 		// ROR dp, X
 	case 0x76:
 
@@ -2356,129 +1109,11 @@ int CPURicoh::Execute() {
 		// ADC [dp], Y
 	case 0x77: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::DirectIndirectIndexedLong, !(P & MFlag));
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= DP << 8;
+		ADC(value);
 
-		int c = 0;
-		if (DP & 0xFF) {
-			c++;
-		}
-
-		uint32_t add = ReadMemory(indAdd, true);
-		add |= ReadMemory(indAdd + 1, true) << 8;
-		add |= ReadMemory(indAdd + 2, true) << 16;
-		add += Y;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				int c = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (c << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				c = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (c << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				c = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (c << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 6 + c;
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
 		// SEI
 	case 0x78:
@@ -2490,129 +1125,12 @@ int CPURicoh::Execute() {
 		// ADC addr, Y
 	case 0x79: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		ADC(value);
 
-		int c = 0;
-		if ((P & XFlag) || ((add & 0xFF00) != ((add + X) & 0xFF00))) {
-			c++;
-		}
-		add += Y;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 4 + c;
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
-
-		break;
-
 		// PLY
 	case 0x7A:
 
@@ -2668,125 +1186,11 @@ int CPURicoh::Execute() {
 		// ADC addr, X
 	case 0x7D: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		ADC(value);
 
-		int c = 0;
-		if ((P & XFlag) || ((add & 0xFF00) != ((add + X) & 0xFF00))) {
-			c++;
-		}
-		add += X;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 4 + c;
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
 		// ROR addr, X
 	case 0x7E:
@@ -2796,124 +1200,11 @@ int CPURicoh::Execute() {
 		// ADC long, X
 	case 0x7F: {
 
-		uint16_t prevA;
+		int16_t value = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
 
-		uint32_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		add |= ReadMemory(PC++, false) << 16;
+		ADC(value);
 
-		int c = 0;
-
-		add += X;
-
-		int16_t value = ReadMemory(add, true);
-
-		int8_t C = (P & CFlag) ? 1 : 0;
-
-		if (P & MFlag) {
-			uint16_t result;
-			// Decimal Mode
-			if (P & DFlag) {
-				result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				prevA = A;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-			}
-			else {
-				prevA = A;
-
-				result = (A & 0xFF) + (uint8_t)value + C;
-
-				A &= 0xFF00;
-				A |= (uint8_t)result;
-
-				if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-		else {
-			c++;
-			if (P & DFlag) {
-				uint16_t result;
-				value |= ReadMemory(add + 1, true) << 8;
-
-				result = (A & 0x0F) + (value & 0x0F) + C;
-				if (result > 0x09) {
-					result += 0x06;
-				}
-				C = (result > 0x0F);
-				result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
-
-				if (result > 0x9F) {
-					result += 0x60;
-				}
-				C = (result > 0x0FF);
-				result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
-
-				if (result > 0x9FF) {
-					result += 0x600;
-				}
-				C = (result > 0x0FFF);
-				result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
-
-				prevA = A;
-
-				if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-
-				if (result > 0x9FFF) {
-					result += 0x6000;
-				}
-
-				A = result;
-			}
-			else {
-				prevA = (int16_t)A;
-				value |= ReadMemory(add + 1, false) << 8;
-
-				A = (int16_t)A + (int16_t)value + C;
-
-				if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
-					P |= VFlag;
-				}
-				else {
-					P &= ~VFlag;
-				}
-			}
-		}
-
-		CheckNFlag(A, true, false);
-
-		CheckZFlag(A, true, false);
-		CheckCFlag(A, prevA, false);
-
-		return 5 + c;
+		return !(P & MFlag) ? 6 : 5;
 	}
 		// BRA nearlabel
 	case 0x80: {
@@ -3164,11 +1455,7 @@ int CPURicoh::Execute() {
 		// LDY #const
 	case 0xA0:
 
-		Y = ReadMemory(PC++, false);
-
-		if (!(P & XFlag)) {
-			Y |= ReadMemory(PC++, false) << 8;
-		}
+		Y = GetValue(AddMode::Immediate, !(P & XFlag));
 
 		CheckNFlag(Y, false, true);
 		CheckZFlag(Y, false, true);
@@ -3183,11 +1470,7 @@ int CPURicoh::Execute() {
 		// LDX #const
 	case 0xA2:
 
-		X = ReadMemory(PC++, false);
-
-		if (!(P & XFlag)) {
-			X |= ReadMemory(PC++, false) << 8;
-		}
+		X = GetValue(AddMode::Immediate, !(P & XFlag));
 
 		CheckNFlag(X, false, true);
 		CheckZFlag(X, false, true);
@@ -3315,21 +1598,22 @@ int CPURicoh::Execute() {
 		break;
 
 		// LDA #const
-	case 0xA9:
+	case 0xA9: {
 
+		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 		A &= 0xFF00;
-		A |= ReadMemory(PC++, false);
+		A |= (value & 0xFF);
 
 		if (!(P & MFlag)) {
 			A &= 0x00FF;
-			A |= ReadMemory(PC++, false) << 8;
+			A |= (value & 0xFF00);
 		}
 
 		CheckNFlag(A, true, false);
 		CheckZFlag(A, true, false);
 
 		return !(P & MFlag) ? 3 : 2;
-
+	}
 		// TAX
 	case 0xAA:
 
@@ -3491,7 +1775,7 @@ int CPURicoh::Execute() {
 		// REP #const
 	case 0xC2: {
 
-		uint8_t value = ReadMemory(PC++, false);
+		uint8_t value = GetValue(AddMode::Immediate, false);
 		P &= ~value;
 
 		if (P & XFlag) {
@@ -3540,10 +1824,9 @@ int CPURicoh::Execute() {
 		// CMP #const
 	case 0xC9: {
 
-		uint16_t value = ReadMemory(PC++, false);
+		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
 		if (!(P & MFlag)) {
-			value |= ReadMemory(PC++, false) << 8;
 
 			if (value == A) {
 				P |= ZFlag;
@@ -3607,13 +1890,9 @@ int CPURicoh::Execute() {
 		// CMP addr
 	case 0xCD: {
 
-		uint16_t dir = ReadMemory(PC++, false);
-		dir |= ReadMemory(PC++, false) << 8;
-
-		uint16_t value = ReadMemory(dir, false);
+		uint16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
 		if (!(P & MFlag)) {
-			value |= ReadMemory(dir + 1, false) << 8;
 
 			if (value == A) {
 				P |= ZFlag;
@@ -3768,12 +2047,7 @@ int CPURicoh::Execute() {
 		// CPX #const
 	case 0xE0: {
 
-		uint16_t value = ReadMemory(PC++, false);
-
-		if (!(P & XFlag)) {
-			value |= ReadMemory(PC++, false) << 8;
-
-		}
+		uint16_t value = GetValue(AddMode::Immediate, !(P & XFlag));
 
 		if (value == X) {
 			P |= ZFlag;
@@ -3803,7 +2077,7 @@ int CPURicoh::Execute() {
 		// SEP #const
 	case 0xE2: {
 
-		uint8_t value = ReadMemory(PC++, false);
+		uint8_t value = GetValue(AddMode::Immediate, false);
 		P |= value;
 
 		return 3;
@@ -3871,14 +2145,7 @@ int CPURicoh::Execute() {
 		// CPX addr
 	case 0xEC: {
 
-		uint16_t dir = ReadMemory(PC++, false);
-		dir |= ReadMemory(PC++, false) << 8;
-
-		uint16_t value = ReadMemory(dir, false);
-
-		if (!(P & XFlag)) {
-			value |= ReadMemory(dir + 1, false) << 8;
-		}
+		uint16_t value = GetValue(AddMode::Absolute, !(P & XFlag));
 
 		if (value == X) {
 			P |= ZFlag;
@@ -4059,6 +2326,295 @@ int CPURicoh::Execute() {
 	return 2;
 }
 
+uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
+{
+	uint16_t value = 0;
+
+	extraCycles = 0;
+
+	switch (addMode) {
+
+	case AddMode::Immediate: {
+		value = ReadMemory(PC++, false);
+
+		if (is16) {
+			value |= ReadMemory(PC++, false) << 8;
+		}
+		break;
+	}
+
+	case AddMode::Absolute: {
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+
+		value = ReadMemory(add, false);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, false) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::AbsoluteLong: {
+
+		uint32_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add |= ReadMemory(PC++, false) << 16;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, false) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::AbsoluteIndexedX: {
+
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+
+		if (!(P & XFlag) || ((add & 0xFF00) != ((add + X) & 0xFF00))) {
+			extraCycles++;
+		}
+		add += X;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::AbsoluteIndexedY: {
+
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+
+		if (!(P & XFlag) || ((add & 0xFF00) != ((add + X) & 0xFF00))) {
+			extraCycles++;
+		}
+		add += Y;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::AbsoluteIndexedLong: {
+
+		uint32_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add |= ReadMemory(PC++, false) << 16;
+
+		add += X;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::Direct: {
+
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::DirectIndirect: {
+
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::DirectIndirectLong: {
+
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		uint32_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+		add |= ReadMemory(indAdd + 2, true) << 16;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::DirectIndirectIndexedLong: {
+
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		uint32_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+		add |= ReadMemory(indAdd + 2, true) << 16;
+		add += Y;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::DirectIndirectIndexed: {
+
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		if (!(P & XFlag) || ((add & 0xFF00) != ((add + Y) & 0xFF00))) {
+			extraCycles++;
+		}
+		add += Y;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::DirectIndexedIndirect: {
+
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
+		indAdd += X;
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+		
+		break;
+	}
+
+	case AddMode::DirectIndexedX: {
+
+		uint16_t add = ReadMemory(PC++, false);
+
+		add |= DP << 8;
+		add += X;
+
+		value = ReadMemory(add, true);
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::StackRelative: {
+
+		uint16_t add = ReadMemory(PC++, false);
+		add += SP;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::StackRelativeIndirectIndexed: {
+
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd += SP;
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+		add += Y;
+
+		value = ReadMemory(add, true);
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	}
+
+	return value;
+}
+
 void CPURicoh::CheckNFlag(uint16_t value, bool isA, bool isX) {
 
 	if ((isA && (P & MFlag)) || (isX && (P & XFlag))) {
@@ -4117,4 +2673,112 @@ void CPURicoh::CheckCFlag(uint16_t value, uint16_t prevValue, bool isSub) {
 			P &= ~CFlag;
 		}
 	}
+}
+
+int CPURicoh::ADC(uint16_t value) {
+
+	uint16_t prevA;
+	int8_t C = (P & CFlag) ? 1 : 0;
+
+	if (P & MFlag) {
+		uint16_t result;
+		// Decimal Mode
+		if (P & DFlag) {
+			result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
+			if (result > 0x09) {
+				result += 0x06;
+			}
+			C = (result > 0x0F);
+			result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
+
+			prevA = A;
+
+			if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			if (result > 0x9F) {
+				result += 0x60;
+			}
+
+			A &= 0xFF00;
+			A |= (uint8_t)result;
+		}
+		else {
+			prevA = A;
+
+			result = (A & 0xFF) + (uint8_t)value + C;
+
+			A &= 0xFF00;
+			A |= (uint8_t)result;
+
+			if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+		}
+	}
+	else {
+		if (P & DFlag) {
+			uint16_t result;
+
+			result = (A & 0x0F) + (value & 0x0F) + C;
+			if (result > 0x09) {
+				result += 0x06;
+			}
+			C = (result > 0x0F);
+			result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
+
+			if (result > 0x9F) {
+				result += 0x60;
+			}
+			C = (result > 0x0FF);
+			result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
+
+			if (result > 0x9FF) {
+				result += 0x600;
+			}
+			C = (result > 0x0FFF);
+			result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
+
+			prevA = A;
+
+			if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			if (result > 0x9FFF) {
+				result += 0x6000;
+			}
+
+			A = result;
+		}
+		else {
+			prevA = (int16_t)A;
+
+			A = (int16_t)A + (int16_t)value + C;
+
+			if (~(prevA ^ value) & (prevA ^ A) & 0x8000) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+		}
+	}
+
+	CheckNFlag(A, true, false);
+
+	CheckZFlag(A, true, false);
+	CheckCFlag(A, prevA, false);
+
+	return 0;
 }

@@ -65,6 +65,36 @@ private:
 	void CheckZFlag(uint16_t value, bool isA, bool isX);
 	void CheckCFlag(uint16_t value, uint16_t prevValue, bool isSub);
 
+	int extraCycles = 0;
+
+	int ADC(uint16_t value);
+
+	enum class AddMode {
+		Immediate,
+		Relative,
+		RelativeLong,
+		Direct,
+		DirectIndexedX,
+		DirectIndexedY,
+		DirectIndirect,
+		DirectIndexedIndirect,
+		DirectIndirectIndexed,
+		DirectIndirectLong,
+		DirectIndirectIndexedLong,
+		Absolute,
+		AbsoluteIndexedX,
+		AbsoluteIndexedY,
+		AbsoluteLong,
+		AbsoluteIndexedLong,
+		StackRelative,
+		StackRelativeIndirectIndexed,
+		AbsoluteIndirect,
+		AbsoluteIndirectLong,
+		AbsoluteIndexedIndirect
+	};
+
+	uint16_t GetValue(AddMode addMode, bool is16);
+
 public:
 
 	CPURicoh();
