@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestASL.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestBIT.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 5498) {
+	if (lines >= 8637) {
 		std::cout << " " << std::endl;
 		fclose(stdout);
 	}
@@ -212,7 +212,35 @@ int CPURicoh::Execute() {
 		break;
 
 		// TSB dp
-	case 0x04:
+	case 0x04: {
+
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t result = value | A;
+
+		CheckZFlag(value & A, true, false);
+
+		WriteMemory(add, result, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (result & 0xFF00) >> 8, true);
+		}
+
+		return 5 + c;
+	}
 
 		break;
 
@@ -353,10 +381,31 @@ int CPURicoh::Execute() {
 		break;
 
 		// TSB addr
-	case 0x0C:
+	case 0x0C: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+		}
+
+		uint16_t result = value | A;
+
+		CheckZFlag(value & A, true, false);
+
+		WriteMemory(add, result, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (result & 0xFF00) >> 8, false);
+		}
+
+		return 6 + c;
+	}
 		// ORA addr
 	case 0x0D:
 
@@ -461,10 +510,39 @@ int CPURicoh::Execute() {
 		break;
 
 		// TRB dp
-	case 0x14:
+	case 0x14: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		uint16_t result = 0;
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+			result = value & ~A;
+		}
+		else {
+			result = value & ~(A & 0x00FF);
+		}
+
+		CheckZFlag(value & A, true, false);
+
+		WriteMemory(add, result, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (result & 0xFF00) >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// ORA dp, X
 	case 0x15:
 
@@ -567,10 +645,35 @@ int CPURicoh::Execute() {
 		break;
 
 		// TRB addr
-	case 0x1C:
+	case 0x1C: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		uint16_t result = 0;
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+			result = value & ~A;
+		}
+		else {
+			result = value & ~(A & 0x00FF);
+		}
+
+		CheckZFlag(value & A, true, false);
+
+		WriteMemory(add, result, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (result & 0xFF00) >> 8, false);
+		}
+
+		return 6 + c;
+	}
 		// ORA addr, X
 	case 0x1D:
 
@@ -678,19 +781,13 @@ int CPURicoh::Execute() {
 		// BIT dp
 	case 0x24: {
 
-		uint32_t add = ReadMemory(PC++, false);
-
-		add |= (DP << 8);
-
-		uint16_t value = ReadMemory(add, true);
+		uint16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 		uint16_t result;
 
 		int c = 0;
 
 		if (!(P & MFlag)) {
 			c++;
-
-			value |= ReadMemory(add + 1, true) << 8;
 
 			if (value & 0x8000) {
 				P |= NFlag;
@@ -886,10 +983,58 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 8 : 7;
 	}
 		// BIT dp, X
-	case 0x34:
+	case 0x34: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
+		uint16_t result;
 
+		int c = 0;
+
+		if (!(P & MFlag)) {
+			c++;
+
+			if (value & 0x8000) {
+				P |= NFlag;
+			}
+			else {
+				P &= ~NFlag;
+			}
+
+			if (value & 0x4000) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			result = A & value;
+		}
+		else {
+			result = (A & 0xFF) & value;
+
+			if (value & 0x80) {
+				P |= NFlag;
+			}
+			else {
+				P &= ~NFlag;
+			}
+
+			if (value & 0x40) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		CheckZFlag(result, true, false);
+
+		return 4 + c;
+	}
 		// AND dp, X
 	case 0x35: {
 
@@ -945,10 +1090,51 @@ int CPURicoh::Execute() {
 		break;
 
 		// BIT addr, X
-	case 0x3C:
+	case 0x3C: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
+		uint16_t result;
 
+		if (!(P & MFlag)) {
+
+			if (value & 0x8000) {
+				P |= NFlag;
+			}
+			else {
+				P &= ~NFlag;
+			}
+
+			if (value & 0x4000) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			result = A & value;
+		}
+		else {
+			result = (A & 0xFF) & value;
+
+			if (value & 0x80) {
+				P |= NFlag;
+			}
+			else {
+				P &= ~NFlag;
+			}
+
+			if (value & 0x40) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+		}
+
+		CheckZFlag(result, true, false);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// AND addr, X
 	case 0x3D: {
 
@@ -1592,7 +1778,22 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// BIT #const
-	case 0x89:
+	case 0x89: {
+
+		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
+		uint16_t result;
+
+		if (!(P & MFlag)) {
+			result = A & value;
+		}
+		else {
+			result = (A & 0xFF) & value;
+		}
+
+		CheckZFlag(result, true, false);
+
+		return (!(P & MFlag) ? 3 : 2);
+	}
 
 		break;
 		
