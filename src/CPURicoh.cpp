@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestBIT.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestBRA.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 8637) {
+	if (lines >= 2851) {
 		std::cout << " " << std::endl;
 		fclose(stdout);
 	}
@@ -484,7 +484,7 @@ int CPURicoh::Execute() {
 
 			uint16_t page = PC & 0xFF00;
 			PC += offset;
-			if ((PC & 0xFF00) != page) {
+			if ((PC & 0xFF00) != page && emulationMode) {
 				c = 1;
 			}
 
@@ -951,10 +951,26 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 6 : 5;
 	}
 		// BMI nearlabel
-	case 0x30:
+	case 0x30: {
 
-		break;
+		int8_t offset = ReadMemory(PC++, false);
 
+		if (P & NFlag) {
+
+			int c = 0;
+
+			uint16_t page = PC & 0xFF00;
+			PC += offset;
+			if ((PC & 0xFF00) != page && emulationMode) {
+				c = 1;
+			}
+
+			return 3 + c;
+
+		}
+
+		return 2;
+	}
 		// AND (dp), Y
 	case 0x31: {
 
@@ -1287,10 +1303,26 @@ int CPURicoh::Execute() {
 		break;
 
 		// BVC nearlabel
-	case 0x50:
+	case 0x50: {
 
-		break;
+		int8_t offset = ReadMemory(PC++, false);
 
+		if (!(P & VFlag)) {
+
+			int c = 0;
+
+			uint16_t page = PC & 0xFF00;
+			PC += offset;
+			if ((PC & 0xFF00) != page && emulationMode) {
+				c = 1;
+			}
+
+			return 3 + c;
+
+		}
+
+		return 2;
+	}
 		// EOR (dp), Y
 	case 0x51:
 
@@ -1533,10 +1565,26 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 6 : 5;
 	}
 		// BVS nearlabel
-	case 0x70:
+	case 0x70: {
 
-		break;
+		int8_t offset = ReadMemory(PC++, false);
 
+		if (P & VFlag) {
+
+			int c = 0;
+
+			uint16_t page = PC & 0xFF00;
+			PC += offset;
+			if ((PC & 0xFF00) != page && emulationMode) {
+				c = 1;
+			}
+
+			return 3 + c;
+
+		}
+
+		return 2;
+	}
 		// ADC (dp), Y
 	case 0x71: {
 
@@ -1704,10 +1752,15 @@ int CPURicoh::Execute() {
 		break;
 
 		// BRL label
-	case 0x82:
+	case 0x82: {
 
-		break;
+		int16_t offset = ReadMemory(PC++, false);
+		offset |= ReadMemory(PC++, false) << 8;
 
+		PC += offset;
+
+		return 4;
+	}
 		// STA sr, S
 	case 0x83:
 
@@ -1854,10 +1907,26 @@ int CPURicoh::Execute() {
 		break;
 
 		// BCC nearlabel
-	case 0x90:
+	case 0x90: {
 
-		break;
+		int8_t offset = ReadMemory(PC++, false);
 
+		if (!(P & CFlag)) {
+
+			int c = 0;
+
+			uint16_t page = PC & 0xFF00;
+			PC += offset;
+			if ((PC & 0xFF00) != page && emulationMode) {
+				c = 1;
+			}
+
+			return 3 + c;
+
+		}
+
+		return 2;
+	}
 		// STA (dp), Y
 	case 0x91:
 
@@ -2142,10 +2211,26 @@ int CPURicoh::Execute() {
 		break;
 
 		// BCS nearlabel
-	case 0xB0:
+	case 0xB0: {
 
-		break;
+		int8_t offset = ReadMemory(PC++, false);
 
+		if (P & CFlag) {
+
+			int c = 0;
+
+			uint16_t page = PC & 0xFF00;
+			PC += offset;
+			if ((PC & 0xFF00) != page && emulationMode) {
+				c = 1;
+			}
+
+			return 3 + c;
+
+		}
+
+		return 2;
+	}
 		// LDA (dp), Y
 	case 0xB1:
 
