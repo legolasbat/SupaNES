@@ -67,7 +67,8 @@ private:
 
 	int extraCycles = 0;
 
-	int ADC(uint16_t value);
+	void ADC(uint16_t value);
+	void AND(uint16_t value);
 
 	enum class AddMode {
 		Immediate,

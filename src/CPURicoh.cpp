@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestADC.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestAND.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 22845) {
+	if (lines >= 13447) {
 		std::cout << " " << std::endl;
 		fclose(stdout);
 	}
@@ -390,20 +390,28 @@ int CPURicoh::Execute() {
 		return 6;
 	}
 		// AND (dp, X)
-	case 0x21:
+	case 0x21: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// JSR long
 	case 0x22:
 
 		break;
 
 		// AND sr, S
-	case 0x23:
+	case 0x23: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelative, !(P & MFlag));
 
+		AND(value);
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// BIT dp
 	case 0x24: {
 
@@ -464,17 +472,28 @@ int CPURicoh::Execute() {
 		return 3 + c;
 	}
 		// AND dp
-	case 0x25:
+	case 0x25: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
+	}
 		// ROL dp
 	case 0x26:
 
 		break;
 
 		// AND [dp]
-	case 0x27:
+	case 0x27: {
+
+		uint16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
+
+		AND(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 
 		break;
 
@@ -488,41 +507,7 @@ int CPURicoh::Execute() {
 
 		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
-		if (!(P & MFlag)) {
-
-			A &= value;
-
-			if (A == 0) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if (A & 0x8000) {
-				P |= NFlag;
-			}
-			else {
-				P &= ~NFlag;
-			}
-		}
-		else {
-			A &= (value | 0xFF00);
-
-			if ((A & 0xFF) == 0) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if (A & 0x80) {
-				P |= NFlag;
-			}
-			else {
-				P &= ~NFlag;
-			}
-		}
+		AND(value);
 
 		return !(P & MFlag) ? 3 : 2;
 	}
@@ -583,60 +568,88 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 5 : 4;
 	}
 		// AND addr
-	case 0x2D:
+	case 0x2D: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
+		AND(value);
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// ROL addr
 	case 0x2E:
 
 		break;
 
 		// AND long
-	case 0x2F:
+	case 0x2F: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
 
+		AND(value);
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// BMI nearlabel
 	case 0x30:
 
 		break;
 
 		// AND (dp), Y
-	case 0x31:
+	case 0x31: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// AND (dp)
-	case 0x32:
+	case 0x32: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirect, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// AND (sr, S), Y
-	case 0x33:
+	case 0x33: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
 
+		AND(value);
+
+		return !(P & MFlag) ? 8 : 7;
+	}
 		// BIT dp, X
 	case 0x34:
 
 		break;
 
 		// AND dp, X
-	case 0x35:
+	case 0x35: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// ROL dp, X
 	case 0x36:
 
 		break;
 
 		// AND [dp], Y
-	case 0x37:
+	case 0x37: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// SEC
 	case 0x38:
 
@@ -645,10 +658,14 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// AND addr, Y
-	case 0x39:
+	case 0x39: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
 
+		AND(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// DEC A
 	case 0x3A:
 
@@ -670,7 +687,14 @@ int CPURicoh::Execute() {
 		break;
 
 		// AND addr, X
-	case 0x3D:
+	case 0x3D: {
+
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
+
+		AND(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 
 		break;
 
@@ -680,10 +704,14 @@ int CPURicoh::Execute() {
 		break;
 
 		// AND long, X
-	case 0x3F:
+	case 0x3F: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
 
+		AND(value);
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// RTI
 	case 0x40:
 
@@ -2675,7 +2703,7 @@ void CPURicoh::CheckCFlag(uint16_t value, uint16_t prevValue, bool isSub) {
 	}
 }
 
-int CPURicoh::ADC(uint16_t value) {
+void CPURicoh::ADC(uint16_t value) {
 
 	uint16_t prevA;
 	int8_t C = (P & CFlag) ? 1 : 0;
@@ -2779,6 +2807,43 @@ int CPURicoh::ADC(uint16_t value) {
 
 	CheckZFlag(A, true, false);
 	CheckCFlag(A, prevA, false);
+}
 
-	return 0;
+void CPURicoh::AND(uint16_t value) {
+
+	if (!(P & MFlag)) {
+
+		A &= value;
+
+		if (A == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A & 0x8000) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+	}
+	else {
+		A &= (value | 0xFF00);
+
+		if ((A & 0xFF) == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A & 0x80) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+	}
 }
