@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestORA.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestPHL.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 13442) {
+	if (lines >= 10097) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -149,10 +149,14 @@ void CPURicoh::WriteMemory(uint32_t add, uint8_t value, bool isLong) {
 }
 
 uint8_t CPURicoh::Pull() {
-	return ReadMemory(++SP, true);
+
+	uint8_t value = ReadMemory(++SP, true);
+	//std::cout << "Pulling " << std::hex << (int)value << " at " << std::hex << (int)SP << std::endl;
+	return value;
 }
 
 void CPURicoh::Push(uint8_t value) {
+	//std::cout << "Pushing " << std::hex << (int)value << " at " << std::hex << (int)SP << std::endl;
 	WriteMemory(SP--, value, true);
 }
 
@@ -398,7 +402,10 @@ int CPURicoh::Execute() {
 		// PHD
 	case 0x0B:
 
-		break;
+		Push(DP >> 8);
+		Push(DP & 0xFF);
+
+		return 4;
 
 		// TSB addr
 	case 0x0C: {
@@ -939,7 +946,14 @@ int CPURicoh::Execute() {
 		// PLP
 	case 0x28:
 
-		break;
+		P = Pull();
+
+		if (P & XFlag) {
+			X &= 0x00FF;
+			Y &= 0x00FF;
+		}
+
+		return 4;
 
 		// AND #const
 	case 0x29: {
@@ -958,7 +972,24 @@ int CPURicoh::Execute() {
 		// PLD
 	case 0x2B:
 
-		break;
+		DP = Pull();
+		DP |= Pull() << 8;
+
+		if (DP & 0x8000) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (DP == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		return 5;
 
 		// BIT addr
 	case 0x2C: {
@@ -1800,10 +1831,18 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
 		// PER label
-	case 0x62:
+	case 0x62: {
 
-		break;
+		int16_t offset = ReadMemory(PC++, false);
+		offset |= ReadMemory(PC++, false) << 8;
 
+		offset += PC;
+
+		Push(offset >> 8);
+		Push(offset & 0xFF);
+
+		return 6;
+	}
 		// ADC sr, S
 	case 0x63: {
 
@@ -2270,7 +2309,9 @@ int CPURicoh::Execute() {
 		// PHB
 	case 0x8B:
 
-		break;
+		Push(PB);
+
+		return 3;
 
 		// STY addr
 	case 0x8C: {
@@ -3208,10 +3249,24 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 8 : 7);
 	}
 		// PEI (dp)
-	case 0xD4:
+	case 0xD4: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		Push(add >> 8);
+		Push(add & 0xFF);
+
+		return 6 + c;
+	}
 		// CMP dp, X
 	case 0xD5: {
 
@@ -3380,6 +3435,11 @@ int CPURicoh::Execute() {
 
 		uint8_t value = (uint8_t)GetValue(AddMode::Immediate, false);
 		P |= value;
+
+		if (P & XFlag) {
+			X &= 0xFF;
+			Y &= 0xFF;
+		}
 
 		return 3;
 	}
@@ -3572,10 +3632,16 @@ int CPURicoh::Execute() {
 		break;
 
 		// PEA addr
-	case 0xF4:
+	case 0xF4: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		Push(add >> 8);
+		Push(add & 0xFF);
+
+		return 5;
+	}
 		// SBC dp, X
 	case 0xF5:
 
