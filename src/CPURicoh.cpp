@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestJMP.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestLDR.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 2593) {
+	if (lines >= 21147) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -2190,24 +2190,50 @@ int CPURicoh::Execute() {
 		break;
 
 		// LDY #const
-	case 0xA0:
+	case 0xA0: {
 
-		Y = GetValue(AddMode::Immediate, !(P & XFlag));
+		if (!(P & XFlag)) {
+			Y = GetValue(AddMode::Immediate, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Immediate, !(P & XFlag));
+			Y &= 0xFF00;
+			Y |= value;
+		}
 
 		CheckNFlag(Y, false, true);
 		CheckZFlag(Y, false, true);
 
 		return !(P & XFlag) ? 3 : 2;
-
+	}
 		// LDA (dp, X)
 	case 0xA1:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 
 		// LDX #const
 	case 0xA2:
 
-		X = GetValue(AddMode::Immediate, !(P & XFlag));
+		if (!(P & XFlag)) {
+			X = GetValue(AddMode::Immediate, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Immediate, !(P & XFlag));
+			X &= 0xFF00;
+			X |= value;
+		}
 
 		CheckNFlag(X, false, true);
 		CheckZFlag(X, false, true);
@@ -2217,118 +2243,88 @@ int CPURicoh::Execute() {
 		// LDA sr, S
 	case 0xA3:
 
-		break;
-
-		// LDY dp
-	case 0xA4:
-
-		break;
-
-		// LDA dp
-	case 0xA5: {
-		uint32_t add = ReadMemory(PC++, false);
-
-		add |= DP << 8;
-
-		A &= 0xFF00;
-		A |= ReadMemory(add, true);
-
-		int c = 0;
-
 		if (!(P & MFlag)) {
-			A |= ReadMemory(add + 1, true) << 8;
-			c++;
-
-			if (A == 0) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if (A & 0x8000) {
-				P |= NFlag;
-			}
-			else {
-				P &= ~NFlag;
-			}
+			A = GetValue(AddMode::StackRelative, !(P & MFlag));
 		}
 		else {
-			if ((A & 0xFF) == 0) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if (A & 0x80) {
-				P |= NFlag;
-			}
-			else {
-				P &= ~NFlag;
-			}
-		}
-
-		if ((DP & 0xFF) != 0) {
-			c++;
-		}
-
-		return 3 + c;
-	}
-		// LDX dp
-	case 0xA6: {
-
-		uint8_t add = ReadMemory(PC++, false);
-
-		uint16_t value = ReadMemory(add | (DP << 8), true);
-
-		int c = 0;
-
-		if (!(P & XFlag)) {
-			value |= ReadMemory((add | (DP << 8)) + 1, true) << 8;
-			c++;
-		}
-
-		X = value;
-
-		if ((DP & 0xFF) != 0) {
-			c++;
-		}
-
-		CheckNFlag(X, false, true);
-		CheckZFlag(X, false, true);
-
-		return 3 + c;
-	}
-		// LDA [dp]
-	case 0xA7: {
-
-		uint16_t indAdd = ReadMemory(PC++, false);
-		uint32_t add = ReadMemory((DP << 8) | indAdd, false);
-		add |= ReadMemory(((DP << 8) | indAdd) + 1, false) << 8;
-		add |= ReadMemory(((DP << 8) | indAdd) + 2, false) << 16;
-
-		uint16_t value = ReadMemory(add, true);
-
-		A &= 0xFF00;
-		A |= value;
-
-		int c = 0;
-		if (!(P & MFlag)) {
-			c++;
-			A &= 0x00FF;
-			value |= ReadMemory(add + 1, true) << 8;
-		}
-
-		if ((DP & 0xFF) != 0) {
-			c++;
+			uint8_t value = (uint8_t)GetValue(AddMode::StackRelative, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
 		}
 
 		CheckNFlag(A, true, false);
 		CheckZFlag(A, true, false);
 
-		return 6 + c;
+		return (!(P & MFlag) ? 5 : 4);
+
+		// LDY dp
+	case 0xA4:
+
+		if (!(P & XFlag)) {
+			Y = GetValue(AddMode::Direct, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Direct, !(P & XFlag));
+			Y &= 0xFF00;
+			Y |= value;
+		}
+
+		CheckNFlag(Y, false, true);
+		CheckZFlag(Y, false, true);
+
+		return (!(P & XFlag) ? 4 : 3) + extraCycles;
+
+		// LDA dp
+	case 0xA5:
+
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::Direct, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Direct, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
+
+		// LDX dp
+	case 0xA6: {
+
+		if (!(P & XFlag)) {
+			X = GetValue(AddMode::Direct, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Direct, !(P & XFlag));
+			X &= 0xFF00;
+			X |= value;
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
 	}
+		// LDA [dp]
+	case 0xA7:
+
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+
 		// TAY
 	case 0xA8:
 
@@ -2337,13 +2333,13 @@ int CPURicoh::Execute() {
 		// LDA #const
 	case 0xA9: {
 
-		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
-		A &= 0xFF00;
-		A |= (value & 0xFF);
-
 		if (!(P & MFlag)) {
-			A &= 0x00FF;
-			A |= (value & 0xFF00);
+			A = GetValue(AddMode::Immediate, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Immediate, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
 		}
 
 		CheckNFlag(A, true, false);
@@ -2369,22 +2365,70 @@ int CPURicoh::Execute() {
 		// LDY addr
 	case 0xAC:
 
-		break;
+		if (!(P & XFlag)) {
+			Y = GetValue(AddMode::Absolute, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Absolute, !(P & XFlag));
+			Y &= 0xFF00;
+			Y |= value;
+		}
+
+		CheckNFlag(Y, false, true);
+		CheckZFlag(Y, false, true);
+
+		return !(P & XFlag) ? 5 : 4;
 
 		// LDA addr
 	case 0xAD:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::Absolute, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Absolute, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return !(P & MFlag) ? 5 : 4;
 
 		// LDX addr
 	case 0xAE:
 
-		break;
+		if (!(P & XFlag)) {
+			X = GetValue(AddMode::Absolute, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::Absolute, !(P & XFlag));
+			X &= 0xFF00;
+			X |= value;
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return !(P & XFlag) ? 5 : 4;
 
 		// LDA long
 	case 0xAF:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::AbsoluteLong, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return !(P & MFlag) ? 6 : 5;
 
 		// BCS nearlabel
 	case 0xB0: {
@@ -2410,37 +2454,121 @@ int CPURicoh::Execute() {
 		// LDA (dp), Y
 	case 0xB1:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
 
 		// LDA (dp)
 	case 0xB2:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::DirectIndirect, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndirect, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
 
 		// LDA (sr, S), Y
 	case 0xB3:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return !(P & MFlag) ? 8 : 7;
 
 		// LDY dp, X
 	case 0xB4:
 
-		break;
+		if (!(P & XFlag)) {
+			Y = GetValue(AddMode::DirectIndexedX, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndexedX, !(P & XFlag));
+			Y &= 0xFF00;
+			Y |= value;
+		}
+
+		CheckNFlag(Y, false, true);
+		CheckZFlag(Y, false, true);
+
+		return (!(P & XFlag) ? 5 : 4) + extraCycles;
 
 		// LDA dp, X
 	case 0xB5:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndexedX, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 
 		// LDX dp, Y
 	case 0xB6:
 
-		break;
+		if (!(P & XFlag)) {
+			X = GetValue(AddMode::DirectIndexedY, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndexedY, !(P & XFlag));
+			X &= 0xFF00;
+			X |= value;
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return (!(P & XFlag) ? 5 : 4) + extraCycles;
 
 		// LDA [dp], Y
 	case 0xB7:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::DirectIndirectIndexedLong, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::DirectIndirectIndexedLong, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 
 		// CLV
 	case 0xB8:
@@ -2452,7 +2580,19 @@ int CPURicoh::Execute() {
 		// LDA addr, Y
 	case 0xB9:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 
 		// TSX
 	case 0xBA:
@@ -2467,53 +2607,70 @@ int CPURicoh::Execute() {
 		// LDY addr, X
 	case 0xBC:
 
-		break;
-
-		// LDA addr, X
-	case 0xBD: {
-
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-
-		int c = 0;
-
 		if (!(P & XFlag)) {
-			c++;
-
-			add += X;
+			Y = GetValue(AddMode::AbsoluteIndexedX, !(P & XFlag));
 		}
 		else {
-			uint8_t page = (add & 0xFF00) >> 8;
-			add += X & 0xFF;
-
-			if (((add & 0xFF00) >> 8) != page) {
-				c++;
-			}
+			uint8_t value = (uint8_t)GetValue(AddMode::AbsoluteIndexedX, !(P & XFlag));
+			Y &= 0xFF00;
+			Y |= value;
 		}
 
-		A &= 0xFF00;
-		A |= ReadMemory(add, false);
+		CheckNFlag(Y, false, true);
+		CheckZFlag(Y, false, true);
+
+		return (!(P & XFlag) ? 5 : 4) + extraCycles;
+
+		// LDA addr, X
+	case 0xBD:
 
 		if (!(P & MFlag)) {
-			c++;
-			A &= 0x00FF;
-			A |= ReadMemory(add + 1, false) << 8;
+			A = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
 		}
 
 		CheckNFlag(A, true, false);
 		CheckZFlag(A, true, false);
 
-		return 4 + c;
-	}
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+
 		// LDX addr, Y
 	case 0xBE:
 
-		break;
+		if (!(P & XFlag)) {
+			X = GetValue(AddMode::AbsoluteIndexedY, !(P & XFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::AbsoluteIndexedY, !(P & XFlag));
+			X &= 0xFF00;
+			X |= value;
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return (!(P & XFlag) ? 5 : 4) + extraCycles;
 
 		// LDA long, X
 	case 0xBF:
 
-		break;
+		if (!(P & MFlag)) {
+			A = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
+		}
+		else {
+			uint8_t value = (uint8_t)GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
+			A &= 0xFF00;
+			A |= value;
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return !(P & MFlag) ? 6 : 5;
 
 		// CPY #const
 	case 0xC0: {
@@ -3556,6 +3713,26 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 		add |= DP << 8;
 		add += X;
+
+		value = ReadMemory(add, true);
+
+		if (DP & 0xFF) {
+			extraCycles++;
+		}
+
+		if (is16) {
+			value |= ReadMemory(add + 1, true) << 8;
+		}
+
+		break;
+	}
+
+	case AddMode::DirectIndexedY: {
+
+		uint16_t add = ReadMemory(PC++, false);
+
+		add |= DP << 8;
+		add += Y;
 
 		value = ReadMemory(add, true);
 
