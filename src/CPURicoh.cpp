@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestBRA.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestCMP.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 2851) {
+	if (lines >= 17913) {
 		std::cout << " " << std::endl;
 		fclose(stdout);
 	}
@@ -1767,10 +1767,27 @@ int CPURicoh::Execute() {
 		break;
 
 		// STY dp
-	case 0x84:
+	case 0x84: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
 
+		add |= DP << 8;
+
+		WriteMemory(add, Y & 0xFF, true);
+
+		int c = 0;
+
+		if (!(P & XFlag)) {
+			WriteMemory(add + 1, Y >> 8, true);
+			c++;
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		return 3 + c;
+	}
 		// STA dp
 	case 0x85: {
 
@@ -1943,7 +1960,28 @@ int CPURicoh::Execute() {
 		break;
 
 		// STY dp, X
-	case 0x94:
+	case 0x94: {
+
+		uint32_t add = ReadMemory(PC++, false);
+
+		add |= DP << 8;
+		add += X;
+
+		WriteMemory(add, Y & 0xFF, true);
+
+		int c = 0;
+
+		if (!(P & XFlag)) {
+			WriteMemory(add + 1, Y >> 8, true);
+			c++;
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		return 4 + c;
+	}
 
 		break;
 
@@ -1953,10 +1991,28 @@ int CPURicoh::Execute() {
 		break;
 
 		// STX dp, Y
-	case 0x96:
+	case 0x96: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
 
+		add |= DP << 8;
+		add += Y;
+
+		WriteMemory(add, X & 0xFF, true);
+
+		int c = 0;
+
+		if (!(P & XFlag)) {
+			WriteMemory(add + 1, X >> 8, true);
+			c++;
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		return 4 + c;
+	}
 		// STA [dp], Y
 	case 0x97:
 
@@ -2340,15 +2396,23 @@ int CPURicoh::Execute() {
 		break;
 
 		// CPY #const
-	case 0xC0:
+	case 0xC0: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Immediate, !(P & XFlag));
 
+		CPY(value);
+
+		return (!(P & XFlag) ? 3 : 2);
+	}
 		// CMP (dp, X)
-	case 0xC1:
+	case 0xC1: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 7 : 6 ) + extraCycles;
+	}
 		// REP #const
 	case 0xC2: {
 
@@ -2364,30 +2428,46 @@ int CPURicoh::Execute() {
 	}
 
 		// CMP sr, S
-	case 0xC3:
+	case 0xC3: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelative, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 5 : 4);
+	}
 		// CPY dp
-	case 0xC4:
+	case 0xC4: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Direct, !(P & XFlag));
 
+		CPY(value);
+
+		return (!(P & XFlag) ? 4 : 3) + extraCycles;
+	}
 		// CMP dp
-	case 0xC5:
+	case 0xC5: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
+	}
 		// DEC dp
 	case 0xC6:
 
 		break;
 
 		// CMP [dp]
-	case 0xC7:
+	case 0xC7: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// INY
 	case 0xC8:
 
@@ -2403,44 +2483,7 @@ int CPURicoh::Execute() {
 
 		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
-		if (!(P & MFlag)) {
-
-			if (value == A) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if (A < value) {
-				P &= ~CFlag;
-			}
-			else {
-				P |= CFlag;
-			}
-
-			value = A - value;
-
-		}
-		else {
-			if (value == (A & 0xFF)) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if ((A & 0xFF) < value) {
-				P &= ~CFlag;
-			}
-			else {
-				P |= CFlag;
-			}
-
-			value = (A & 0xFF) - value;
-		}
-
-		CheckNFlag(value, true, false);
+		CMP(value);
 
 		return !(P & MFlag) ? 3 : 2;
 	}
@@ -2460,50 +2503,20 @@ int CPURicoh::Execute() {
 		break;
 
 		// CPY addr
-	case 0xCC:
+	case 0xCC: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Absolute, !(P & XFlag));
 
+		CPY(value);
+
+		return (!(P & XFlag) ? 5 : 4);
+	}
 		// CMP addr
 	case 0xCD: {
 
 		uint16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
-		if (!(P & MFlag)) {
-
-			if (value == A) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if (A < value) {
-				P &= ~CFlag;
-			}
-			else {
-				P |= CFlag;
-			}
-		}
-		else {
-			if (value == (A & 0xFF)) {
-				P |= ZFlag;
-			}
-			else {
-				P &= ~ZFlag;
-			}
-
-			if ((A & 0xFF) < value) {
-				P &= ~CFlag;
-			}
-			else {
-				P |= CFlag;
-			}
-		}
-
-		value = A - value;
-
-		CheckNFlag(value, true, false);
+		CMP(value);
 
 		return !(P & MFlag) ? 5 : 4;
 	}
@@ -2513,10 +2526,14 @@ int CPURicoh::Execute() {
 		break;
 
 		// CMP long
-	case 0xCF:
+	case 0xCF: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 6 : 5);
+	}
 		// BNE nearlabel
 	case 0xD0: {
 
@@ -2540,40 +2557,60 @@ int CPURicoh::Execute() {
 	}
 
 		// CMP (dp), Y
-	case 0xD1:
+	case 0xD1: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// CMP (dp)
-	case 0xD2:
+	case 0xD2: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirect, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// CMP (sr, S), Y
-	case 0xD3:
+	case 0xD3: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 8 : 7);
+	}
 		// PEI (dp)
 	case 0xD4:
 
 		break;
 
 		// CMP dp, X
-	case 0xD5:
+	case 0xD5: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// DEC dp, X
 	case 0xD6:
 
 		break;
 
 		// CMP [dp], Y
-	case 0xD7:
+	case 0xD7: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectIndexedLong, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// CLD
 	case 0xD8:
 
@@ -2582,10 +2619,14 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// CMP addr, Y
-	case 0xD9:
+	case 0xD9: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// PHX
 	case 0xDA:
 
@@ -2607,42 +2648,34 @@ int CPURicoh::Execute() {
 		break;
 
 		// CMP addr, X
-	case 0xDD:
+	case 0xDD: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// DEC addr, X
 	case 0xDE:
 
 		break;
 
 		// CMP long, X
-	case 0xDF:
+	case 0xDF: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
 
+		CMP(value);
+
+		return (!(P & MFlag) ? 6 : 5);
+	}
 		// CPX #const
 	case 0xE0: {
 
 		uint16_t value = GetValue(AddMode::Immediate, !(P & XFlag));
 
-		if (value == X) {
-			P |= ZFlag;
-		}
-		else {
-			P &= ~ZFlag;
-		}
-
-		if (X < value) {
-			P &= ~CFlag;
-		}
-		else {
-			P |= CFlag;
-		}
-
-		value = X - value;
-
-		CheckNFlag(value, false, true);
+		CPX(value);
 
 		return !(P & XFlag) ? 3 : 2;
 	}
@@ -2666,10 +2699,14 @@ int CPURicoh::Execute() {
 		break;
 
 		// CPX dp
-	case 0xE4:
+	case 0xE4: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Direct, !(P & XFlag));
 
+		CPX(value);
+
+		return (!(P & XFlag) ? 4 : 3) + extraCycles;
+	}
 		// SBC dp
 	case 0xE5:
 
@@ -2724,23 +2761,7 @@ int CPURicoh::Execute() {
 
 		uint16_t value = GetValue(AddMode::Absolute, !(P & XFlag));
 
-		if (value == X) {
-			P |= ZFlag;
-		}
-		else {
-			P &= ~ZFlag;
-		}
-
-		if (X < value) {
-			P &= ~CFlag;
-		}
-		else {
-			P |= CFlag;
-		}
-
-		value = X - value;
-
-		CheckNFlag(value, false, true);
+		CPX(value);
 
 		return !(P & XFlag) ? 5 : 4;
 	}
@@ -3395,4 +3416,130 @@ void CPURicoh::AND(uint16_t value) {
 			P &= ~NFlag;
 		}
 	}
+}
+
+void CPURicoh::CMP(uint16_t value) {
+
+	if (!(P & MFlag)) {
+
+		if (value == A) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A < value) {
+			P &= ~CFlag;
+		}
+		else {
+			P |= CFlag;
+		}
+
+		value = A - value;
+
+	}
+	else {
+		if (value == (A & 0xFF)) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((A & 0xFF) < value) {
+			P &= ~CFlag;
+		}
+		else {
+			P |= CFlag;
+		}
+
+		value = (A & 0xFF) - value;
+	}
+
+	CheckNFlag(value, true, false);
+}
+
+void CPURicoh::CPX(uint16_t value) {
+
+	if (!(P & XFlag)) {
+
+		if (value == X) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (X < value) {
+			P &= ~CFlag;
+		}
+		else {
+			P |= CFlag;
+		}
+
+		value = X - value;
+
+	}
+	else {
+		if (value == (X & 0xFF)) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((X & 0xFF) < value) {
+			P &= ~CFlag;
+		}
+		else {
+			P |= CFlag;
+		}
+
+		value = (X & 0xFF) - value;
+	}
+
+	CheckNFlag(value, false, true);
+}
+
+void CPURicoh::CPY(uint16_t value) {
+
+	if (!(P & XFlag)) {
+
+		if (value == Y) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (Y < value) {
+			P &= ~CFlag;
+		}
+		else {
+			P |= CFlag;
+		}
+
+		value = Y - value;
+
+	}
+	else {
+		if (value == (Y & 0xFF)) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((Y & 0xFF) < value) {
+			P &= ~CFlag;
+		}
+		else {
+			P |= CFlag;
+		}
+
+		value = (Y & 0xFF) - value;
+	}
+
+	CheckNFlag(value, false, true);
 }
