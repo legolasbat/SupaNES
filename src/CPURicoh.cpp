@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestPHL.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestRET.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 10097) {
+	if (lines >= 2013) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -196,10 +196,29 @@ void CPURicoh::WriteCPU(uint32_t add, uint8_t value) {
 int CPURicoh::Execute() {
 	switch (opcode) {
 		// BRK
-	case 0x00:
+	case 0x00: {
 
-		break;
+		if(!emulationMode)
+			Push(PB);
 
+		PC++;
+		Push(PC >> 8);
+		Push(PC & 0xFF);
+
+		Push(P);
+
+		P |= IFlag;
+		P &= ~DFlag;
+
+		PB = 0;
+
+		uint16_t add = ReadMemory(0xFFE6, true);
+		add |= ReadMemory(0xFFE7, true) << 8;
+
+		PC = add;
+
+		return emulationMode ? 7 : 8;
+	}
 		// ORA (dp, X)
 	case 0x01: {
 
@@ -1298,7 +1317,15 @@ int CPURicoh::Execute() {
 		// RTI
 	case 0x40:
 
-		break;
+		P = Pull();
+
+		PC = Pull();
+		PC |= Pull() << 8;
+
+		if (!emulationMode)
+			PB = Pull();
+
+		return emulationMode ? 7 : 8;
 
 		// EOR (dp, X)
 	case 0x41: {
