@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestRET.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestSBC.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 2013) {
+	if (lines >= 22850) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -3453,10 +3453,14 @@ int CPURicoh::Execute() {
 		return !(P & XFlag) ? 3 : 2;
 	}
 		// SBC (dp, X)
-	case 0xE1:
+	case 0xE1: {
 
-		break;
+		int16_t value = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// SEP #const
 	case 0xE2: {
 
@@ -3472,10 +3476,14 @@ int CPURicoh::Execute() {
 	}
 
 		// SBC sr, S
-	case 0xE3:
+	case 0xE3: {
 
-		break;
+		int16_t value = GetValue(AddMode::StackRelative, !(P & MFlag));
 
+		SBC(value);
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// CPX dp
 	case 0xE4: {
 
@@ -3486,10 +3494,14 @@ int CPURicoh::Execute() {
 		return (!(P & XFlag) ? 4 : 3) + extraCycles;
 	}
 		// SBC dp
-	case 0xE5:
+	case 0xE5: {
 
-		break;
+		int16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
+	}
 		// INC dp
 	case 0xE6: {
 
@@ -3526,10 +3538,14 @@ int CPURicoh::Execute() {
 		return 5 + c;
 	}
 		// SBC [dp]
-	case 0xE7:
+	case 0xE7: {
 
-		break;
+		int16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// INX
 	case 0xE8:
 
@@ -3549,10 +3565,14 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// SBC #const
-	case 0xE9:
+	case 0xE9: {
 
-		break;
+		int16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
+		SBC(value);
+
+		return !(P & MFlag) ? 3 : 2;
+	}
 		// NOP
 	case 0xEA:
 
@@ -3582,10 +3602,14 @@ int CPURicoh::Execute() {
 		return !(P & XFlag) ? 5 : 4;
 	}
 		// SBC addr
-	case 0xED:
+	case 0xED: {
 
-		break;
+		int16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
+		SBC(value);
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// INC addr
 	case 0xEE: {
 
@@ -3618,10 +3642,14 @@ int CPURicoh::Execute() {
 		return 6 + c;
 	}
 		// SBC long
-	case 0xEF:
+	case 0xEF: {
 
-		break;
+		int16_t value = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
 
+		SBC(value);
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// BEQ nearlabel
 	case 0xF0: {
 
@@ -3644,20 +3672,32 @@ int CPURicoh::Execute() {
 		return 2;
 	}
 		// SBC (dp), Y
-	case 0xF1:
+	case 0xF1: {
 
-		break;
+		int16_t value = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// SBC (dp)
-	case 0xF2:
+	case 0xF2: {
 
-		break;
+		int16_t value = GetValue(AddMode::DirectIndirect, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// SBC (sr, S), Y
-	case 0xF3:
+	case 0xF3: {
 
-		break;
+		int16_t value = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
 
+		SBC(value);
+
+		return !(P & MFlag) ? 8 : 7;
+	}
 		// PEA addr
 	case 0xF4: {
 
@@ -3670,10 +3710,14 @@ int CPURicoh::Execute() {
 		return 5;
 	}
 		// SBC dp, X
-	case 0xF5:
+	case 0xF5: {
 
-		break;
+		int16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// INC dp, X
 	case 0xF6: {
 
@@ -3711,10 +3755,14 @@ int CPURicoh::Execute() {
 		return 6 + c;
 	}
 		// SBC [dp], Y
-	case 0xF7:
+	case 0xF7: {
 
-		break;
+		int16_t value = GetValue(AddMode::DirectIndirectIndexedLong, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// SED
 	case 0xF8:
 
@@ -3723,10 +3771,14 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// SBC addr, Y
-	case 0xF9:
+	case 0xF9: {
 
-		break;
+		int16_t value = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// PLX
 	case 0xFA:
 
@@ -3797,10 +3849,14 @@ int CPURicoh::Execute() {
 		return 8;
 	}
 		// SBC addr, X
-	case 0xFD:
+	case 0xFD: {
 
-		break;
+		int16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
 
+		SBC(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// INC addr, X
 	case 0xFE: {
 
@@ -3834,9 +3890,14 @@ int CPURicoh::Execute() {
 		return 7 + c;
 	}
 		// SBC long, X
-	case 0xFF:
+	case 0xFF: {
 
-		break;
+		int16_t value = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
+
+		SBC(value);
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 
 	}
 
@@ -4560,4 +4621,127 @@ void CPURicoh::ORA(uint16_t value) {
 			P &= ~NFlag;
 		}
 	}
+}
+
+void CPURicoh::SBC(uint16_t value) {
+
+	uint16_t prevA;
+	int8_t C = (P & CFlag) ? 1 : 0;
+
+	value = ~value;
+
+	if (P & MFlag) {
+		uint16_t result;
+		// Decimal Mode
+		if (P & DFlag) {
+			result = (A & 0x0F) + (uint8_t)(value & 0x0F) + C;
+			if (result <= 0x0F) {
+				result -= 0x06;
+			}
+			C = (result > 0x0F);
+			result = (A & 0xF0) + (uint8_t)(value & 0xF0) + (C << 4) + (result & 0x0F);
+
+			prevA = A;
+
+			if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			if (result <= 0xFF) {
+				result -= 0x60;
+			}
+
+			A &= 0xFF00;
+			A |= (uint8_t)result;
+		}
+		else {
+			prevA = A;
+
+			result = (A & 0xFF) + (uint8_t)value + C;
+
+			A &= 0xFF00;
+			A |= (uint8_t)result;
+
+			if (~((prevA & 0xFF) ^ value) & ((prevA & 0xFF) ^ result) & 0x80) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+		}
+
+		if (result > 0xFF) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+	}
+	else {
+		uint32_t result;
+		if (P & DFlag) {
+
+			result = (A & 0x0F) + (value & 0x0F) + C;
+			if (result <= 0x0F) {
+				result -= 0x06;
+			}
+			C = (result > 0x000F);
+			result = (A & 0xF0) + (value & 0xF0) + (C << 4) + (result & 0x0F);
+
+			if (result <= 0x00FF) {
+				result -= 0x60;
+			}
+			C = (result > 0x00FF);
+			result = (A & 0xF00) + (value & 0xF00) + (C << 8) + (result & 0xFF);
+
+			if (result <= 0x0FFF) {
+				result -= 0x600;
+			}
+			C = (result > 0x0FFF);
+			result = (A & 0xF000) + (value & 0xF000) + (C << 12) + (result & 0xFFF);
+
+			prevA = A;
+
+			if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			if (result <= 0xFFFF) {
+				result -= 0x6000;
+			}
+
+			A = result;
+		}
+		else {
+			prevA = (uint16_t)A;
+
+			result = (uint16_t)A + (uint16_t)value + C;
+
+			if (~(prevA ^ value) & (prevA ^ result) & 0x8000) {
+				P |= VFlag;
+			}
+			else {
+				P &= ~VFlag;
+			}
+
+			A = result;
+		}
+
+		if (result > 0xFFFF) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+	}
+
+	CheckNFlag(A, true, false);
+
+	CheckZFlag(A, true, false);
 }
