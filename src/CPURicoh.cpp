@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestEOR.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestINC.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 13447) {
+	if (lines >= 7083) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -632,7 +632,15 @@ int CPURicoh::Execute() {
 		// INC A
 	case 0x1A:
 
-		A++;
+		if (!(P & MFlag)) {
+			A++;
+		}
+		else {
+			uint8_t l = A & 0xFF;
+			l++;
+			A &= 0xFF00;
+			A |= l;
+		}
 
 		CheckNFlag(A, true, false);
 		CheckZFlag(A, true, false);
@@ -1093,7 +1101,15 @@ int CPURicoh::Execute() {
 		// DEC A
 	case 0x3A:
 
-		A--;
+		if(!(P & MFlag)){
+			A--;
+		}
+		else {
+			uint8_t l = A & 0xFF;
+			l--;
+			A &= 0xFF00;
+			A |= l;
+		}
 
 		CheckNFlag(A, true, false);
 		CheckZFlag(A, true, false);
@@ -1900,7 +1916,15 @@ int CPURicoh::Execute() {
 		// DEY
 	case 0x88:
 
-		Y--;
+		if (!(P & XFlag)) {
+			Y--;
+		}
+		else {
+			uint8_t l = Y & 0xFF;
+			l--;
+			Y &= 0xFF00;
+			Y |= l;
+		}
 
 		CheckNFlag(Y, false, true);
 		CheckZFlag(Y, false, true);
@@ -2530,8 +2554,14 @@ int CPURicoh::Execute() {
 		if (!(P & MFlag)) {
 			value |= ReadMemory(add + 1, true) << 8;
 			c += 2;
+			value--;
 		}
-		value--;
+		else {
+			uint8_t l = value & 0xFF;
+			l--;
+			value &= 0xFF00;
+			value |= l;
+		}
 
 		CheckNFlag(value, true, false);
 		CheckZFlag(value, true, false);
@@ -2555,7 +2585,15 @@ int CPURicoh::Execute() {
 		// INY
 	case 0xC8:
 
-		Y++;
+		if (!(P & XFlag)) {
+			Y++;
+		}
+		else {
+			uint8_t l = Y & 0xFF;
+			l++;
+			Y &= 0xFF00;
+			Y |= l;
+		}
 
 		CheckNFlag(Y, false, true);
 		CheckZFlag(Y, false, true);
@@ -2574,7 +2612,15 @@ int CPURicoh::Execute() {
 		// DEX
 	case 0xCA:
 
-		X--;
+		if (!(P & XFlag)) {
+			X--;
+		}
+		else {
+			uint8_t l = X & 0xFF;
+			l--;
+			X &= 0xFF00;
+			X |= l;
+		}
 
 		CheckNFlag(X, false, true);
 		CheckZFlag(X, false, true);
@@ -2616,8 +2662,14 @@ int CPURicoh::Execute() {
 		if (!(P & MFlag)) {
 			value |= ReadMemory(add + 1, false) << 8;
 			c += 2;
+			value--;
 		}
-		value--;
+		else {
+			uint8_t l = value & 0xFF;
+			l--;
+			value &= 0xFF00;
+			value |= l;
+		}
 
 		CheckNFlag(value, true, false);
 		CheckZFlag(value, true, false);
@@ -2718,8 +2770,14 @@ int CPURicoh::Execute() {
 		if (!(P & MFlag)) {
 			value |= ReadMemory(add + 1, true) << 8;
 			c += 2;
+			value--;
 		}
-		value--;
+		else {
+			uint8_t l = value & 0xFF;
+			l--;
+			value &= 0xFF00;
+			value |= l;
+		}
 
 		CheckNFlag(value, true, false);
 		CheckZFlag(value, true, false);
@@ -2798,8 +2856,14 @@ int CPURicoh::Execute() {
 		if (!(P & MFlag)) {
 			value |= ReadMemory(add + 1, false) << 8;
 			c += 2;
+			value--;
 		}
-		value--;
+		else {
+			uint8_t l = value & 0xFF;
+			l--;
+			value &= 0xFF00;
+			value |= l;
+		}
 
 		CheckNFlag(value, true, false);
 		CheckZFlag(value, true, false);
@@ -2863,10 +2927,40 @@ int CPURicoh::Execute() {
 		break;
 
 		// INC dp
-	case 0xE6:
+	case 0xE6: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+			value++;
+		}
+		else {
+			uint8_t l = value & 0xFF;
+			l++;
+			value &= 0xFF00;
+			value |= l;
+		}
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), true);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// SBC [dp]
 	case 0xE7:
 
@@ -2875,7 +2969,15 @@ int CPURicoh::Execute() {
 		// INX
 	case 0xE8:
 
-		X++;
+		if (!(P & XFlag)) {
+			X++;
+		}
+		else {
+			uint8_t l = X & 0xFF;
+			l++;
+			X &= 0xFF00;
+			X |= l;
+		}
 
 		CheckNFlag(X, false, true);
 		CheckZFlag(X, false, true);
@@ -2921,10 +3023,36 @@ int CPURicoh::Execute() {
 		break;
 
 		// INC addr
-	case 0xEE:
+	case 0xEE: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+			value++;
+		}
+		else {
+			uint8_t l = value & 0xFF;
+			l++;
+			value &= 0xFF00;
+			value |= l;
+		}
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), false);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return 6 + c;
+	}
 		// SBC long
 	case 0xEF:
 
@@ -2977,10 +3105,41 @@ int CPURicoh::Execute() {
 		break;
 
 		// INC dp, X
-	case 0xF6:
+	case 0xF6: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+		add += X;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+			value++;
+		}
+		else {
+			uint8_t l = value & 0xFF;
+			l++;
+			value &= 0xFF00;
+			value |= l;
+		}
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), true);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 6 + c;
+	}
 		// SBC [dp], Y
 	case 0xF7:
 
@@ -3060,10 +3219,37 @@ int CPURicoh::Execute() {
 		break;
 
 		// INC addr, X
-	case 0xFE:
+	case 0xFE: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+			value++;
+		}
+		else {
+			uint8_t l = value & 0xFF;
+			l++;
+			value &= 0xFF00;
+			value |= l;
+		}
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), false);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return 7 + c;
+	}
 		// SBC long, X
 	case 0xFF:
 
