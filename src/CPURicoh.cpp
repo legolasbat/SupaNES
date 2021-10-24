@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestROR.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestSTR.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 5508) {
+	if (lines >= 12956) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -2169,10 +2169,27 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 5 : 4;
 	}
 		// STZ dp
-	case 0x64:
+	case 0x64: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
 
+		add |= DP << 8;
+
+		WriteMemory(add, 0, true);
+
+		int c = 0;
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, 0, true);
+			c++;
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		return 3 + c;
+	}
 		// ADC dp
 	case 0x65: {
 
@@ -2504,10 +2521,28 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 8 : 7;
 	}
 		// STZ dp, X
-	case 0x74:
+	case 0x74: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
 
+		add |= DP << 8;
+		add += X;
+
+		WriteMemory(add, 0, true);
+
+		int c = 0;
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, 0, true);
+			c++;
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		return 4 + c;
+	}
 		// ADC dp, X
 	case 0x75: {
 
@@ -2767,10 +2802,28 @@ int CPURicoh::Execute() {
 		return 3 + c;
 	}
 		// STA (dp, X)
-	case 0x81:
+	case 0x81: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
+		indAdd += X;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (A & 0xFF00) >> 8, true);
+		}
+
+		return (!(P & MFlag) ? 7 : 6) + c;
+	}
 		// BRL label
 	case 0x82: {
 
@@ -2782,10 +2835,19 @@ int CPURicoh::Execute() {
 		return 4;
 	}
 		// STA sr, S
-	case 0x83:
+	case 0x83: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add += SP;
 
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// STY dp
 	case 0x84: {
 
@@ -2853,10 +2915,28 @@ int CPURicoh::Execute() {
 		return 3 + c;
 	}
 		// STA [dp]
-	case 0x87:
+	case 0x87: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint32_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+		add |= ReadMemory(indAdd + 2, true) << 16;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return (!(P & MFlag) ? 7 : 6) + c;
+	}
 		// DEY
 	case 0x88:
 
@@ -2923,6 +3003,7 @@ int CPURicoh::Execute() {
 	}
 		// STA addr
 	case 0x8D: {
+
 		uint16_t add = ReadMemory(PC++, false);
 		add |= ReadMemory(PC++, false) << 8;
 
@@ -2949,10 +3030,20 @@ int CPURicoh::Execute() {
 		return !(P & XFlag) ? 5 : 4;
 	}
 		// STA long
-	case 0x8F:
+	case 0x8F: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add |= ReadMemory(PC++, false) << 16;
 
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// BCC nearlabel
 	case 0x90: {
 
@@ -2975,20 +3066,69 @@ int CPURicoh::Execute() {
 		return 2;
 	}
 		// STA (dp), Y
-	case 0x91:
+	case 0x91: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		add += Y;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return (!(P & MFlag) ? 7 : 6) + c;
+	}
 		// STA (dp)
-	case 0x92:
+	case 0x92: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return (!(P & MFlag) ? 6 : 5) + c;
+	}
 		// STA (sr, S), Y
-	case 0x93:
+	case 0x93: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd += SP;
 
+		uint16_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+		add += Y;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return !(P & MFlag) ? 8 : 7;
+	}
 		// STY dp, X
 	case 0x94: {
 
@@ -3016,10 +3156,28 @@ int CPURicoh::Execute() {
 		break;
 
 		// STA dp, X
-	case 0x95:
+	case 0x95: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
 
+		add |= DP << 8;
+		add += X;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		int c = 0;
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+			c++;
+		}
+
+		if ((DP & 0xFF) != 0) {
+			c++;
+		}
+
+		return 4 + c;
+	}
 		// STX dp, Y
 	case 0x96: {
 
@@ -3044,20 +3202,49 @@ int CPURicoh::Execute() {
 		return 4 + c;
 	}
 		// STA [dp], Y
-	case 0x97:
+	case 0x97: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint32_t add = ReadMemory(indAdd, true);
+		add |= ReadMemory(indAdd + 1, true) << 8;
+		add |= ReadMemory(indAdd + 2, true) << 16;
+		add += Y;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return (!(P & MFlag) ? 7 : 6) + c;
+	}
 		// TYA
 	case 0x98:
 
 		break;
 
 		// STA addr, Y
-	case 0x99:
+	case 0x99: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += Y;
 
+		WriteMemory(add, A & 0xFF, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (A & 0xFF00) >> 8, false);
+		}
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// TXS
 	case 0x9A:
 
@@ -3085,20 +3272,52 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 5 : 4;
 	}
 		// STA addr, X
-	case 0x9D:
+	case 0x9D: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		WriteMemory(add, A & 0xFF, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, (A & 0xFF00) >> 8, false);
+		}
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// STZ addr, X
-	case 0x9E:
+	case 0x9E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		WriteMemory(add, 0, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, 0, false);
+		}
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// STA long, X
-	case 0x9F:
+	case 0x9F: {
 
-		break;
+		uint32_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add |= ReadMemory(PC++, false) << 16;
 
+		add += X;
+
+		WriteMemory(add, A & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, A >> 8, true);
+		}
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// LDY #const
 	case 0xA0: {
 
@@ -4510,7 +4729,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 		value = ReadMemory(add, true);
 
 		if (is16) {
-			value |= ReadMemory(add + 1, false) << 8;
+			value |= ReadMemory(add + 1, true) << 8;
 		}
 
 		break;
