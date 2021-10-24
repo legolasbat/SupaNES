@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestSBC.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestROR.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 22850) {
+	if (lines >= 5506) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -946,10 +946,73 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 4 : 3) + extraCycles;
 	}
 		// ROL dp
-	case 0x26:
+	case 0x26: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+
+		if (P & CFlag) {
+			value |= 1;
+		}
+
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, (value & 0xFF), true);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// AND [dp]
 	case 0x27: {
 
@@ -984,10 +1047,59 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 3 : 2;
 	}
 		// ROL A
-	case 0x2A:
+	case 0x2A: {
 
-		break;
+		uint16_t prevA = A;
 
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = A & 0xFF;
+			A &= 0xFF00;
+			A |= (l << 1) & 0xFF;
+
+			if (P & CFlag) {
+				A |= 1;
+			}
+
+			if (prevA & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+			A <<= 1;
+
+			if (P & CFlag) {
+				A |= 1;
+			}
+
+			if (prevA & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((A & 0xFF) == 0)) || (!M && (A == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((A & 0xFF) & 0x80)) || (!M && (A & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		return 2;
+	}
 		// PLD
 	case 0x2B:
 
@@ -1066,10 +1178,67 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 5 : 4;
 	}
 		// ROL addr
-	case 0x2E:
+	case 0x2E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+
+		if (P & CFlag) {
+			value |= 1;
+		}
+
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, (value & 0xFF), false);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return M ? 6 : 8;
+	}
 		// AND long
 	case 0x2F: {
 
@@ -1190,10 +1359,73 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
 		// ROL dp, X
-	case 0x36:
+	case 0x36: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+		add += X;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+		if (P & CFlag) {
+			value |= 1;
+		}
+
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, (value & 0xFF), true);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// AND [dp], Y
 	case 0x37: {
 
@@ -1301,10 +1533,67 @@ int CPURicoh::Execute() {
 		break;
 
 		// ROL addr, X
-	case 0x3E:
+	case 0x3E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		uint16_t value = ReadMemory(add, false);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		value <<= 1;
+		if (P & CFlag) {
+			value |= 1;
+		}
+
+		if (M) {
+
+			if (prev & 0x0080) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+		else {
+
+			if (prev & 0x8000) {
+				P |= CFlag;
+			}
+			else {
+				P &= ~CFlag;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		WriteMemory(add, (value & 0xFF), false);
+		if (!M) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return M ? 7 : 9;
+	}
 		// AND long, X
 	case 0x3F: {
 
