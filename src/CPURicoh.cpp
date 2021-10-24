@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 5506) {
+	if (lines >= 5508) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -2183,10 +2183,71 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 4 : 3) + extraCycles;
 	}
 		// ROR dp
-	case 0x66:
+	case 0x66: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = value & 0xFF;
+			value &= 0xFF00;
+			value |= l >> 1;
+			if (P & CFlag) {
+				value |= 0x80;
+			}
+		}
+		else {
+			value >>= 1;
+			if (P & CFlag) {
+				value |= 0x8000;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (prev & 0x1) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+
+		WriteMemory(add, value & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// ADC [dp]
 	case 0x67: {
 
@@ -2248,10 +2309,50 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 3 : 2;
 	}
 		// ROR A
-	case 0x6A:
+	case 0x6A: {
 
-		break;
+		uint16_t prevA = A;
 
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = A & 0xFF;
+			A &= 0xFF00;
+			A |= l >> 1;
+			if (P & CFlag) {
+				A |= 0x80;
+			}
+		}
+		else {
+			A >>= 1;
+			if (P & CFlag) {
+				A |= 0x8000;
+			}
+		}
+
+		if ((M && ((A & 0xFF) == 0)) || (!M && (A == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((A & 0xFF) & 0x80)) || (!M && (A & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (prevA & 0x1) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+
+		return 2;
+	}
 		// RTL
 	case 0x6B: {
 
@@ -2284,10 +2385,67 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 5 : 4;
 	}
 		// ROR addr
-	case 0x6E:
+	case 0x6E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = value & 0xFF;
+			value &= 0xFF00;
+			value |= l >> 1;
+			if (P & CFlag) {
+				value |= 0x80;
+			}
+		}
+		else {
+			value >>= 1;
+			if (P & CFlag) {
+				value |= 0x8000;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (prev & 0x1) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+
+		WriteMemory(add, value & 0xFF, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return 6 + c;
+	}
 		// ADC long
 	case 0x6F: {
 
@@ -2360,10 +2518,72 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
 		// ROR dp, X
-	case 0x76:
+	case 0x76: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+		add += X;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = value & 0xFF;
+			value &= 0xFF00;
+			value |= l >> 1;
+			if (P & CFlag) {
+				value |= 0x80;
+			}
+		}
+		else {
+			value >>= 1;
+			if (P & CFlag) {
+				value |= 0x8000;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (prev & 0x1) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+
+		WriteMemory(add, value & 0xFF, true);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 6 + c;
+	}
 		// ADC [dp], Y
 	case 0x77: {
 
@@ -2460,10 +2680,68 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
 		// ROR addr, X
-	case 0x7E:
+	case 0x7E: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+		}
+
+		uint16_t prev = value;
+
+		bool M = P & MFlag;
+
+		if (M) {
+			uint8_t l = value & 0xFF;
+			value &= 0xFF00;
+			value |= l >> 1;
+			if (P & CFlag) {
+				value |= 0x80;
+			}
+		}
+		else {
+			value >>= 1;
+			if (P & CFlag) {
+				value |= 0x8000;
+			}
+		}
+
+		if ((M && ((value & 0xFF) == 0)) || (!M && (value == 0))) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if ((M && ((value & 0xFF) & 0x80)) || (!M && (value & 0x8000))) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (prev & 0x1) {
+			P |= CFlag;
+		}
+		else {
+			P &= ~CFlag;
+		}
+
+		WriteMemory(add, value & 0xFF, false);
+
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return 7 + c;
+	}
 		// ADC long, X
 	case 0x7F: {
 
