@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestCMP.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestDEC.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 17913) {
+	if (lines >= 7083) {
 		std::cout << " " << std::endl;
 		fclose(stdout);
 	}
@@ -233,7 +233,7 @@ int CPURicoh::Execute() {
 
 		CheckZFlag(value & A, true, false);
 
-		WriteMemory(add, result, true);
+		WriteMemory(add, (result & 0xFF), true);
 
 		if (!(P & MFlag)) {
 			WriteMemory(add + 1, (result & 0xFF00) >> 8, true);
@@ -305,7 +305,7 @@ int CPURicoh::Execute() {
 			P &= ~NFlag;
 		}
 
-		WriteMemory(add, value, true);
+		WriteMemory(add, (value & 0xFF), true);
 		if (!M) {
 			WriteMemory(add + 1, value >> 8, true);
 		}
@@ -398,7 +398,7 @@ int CPURicoh::Execute() {
 
 		CheckZFlag(value & A, true, false);
 
-		WriteMemory(add, result, false);
+		WriteMemory(add, (result & 0xFF), false);
 
 		if (!(P & MFlag)) {
 			WriteMemory(add + 1, (result & 0xFF00) >> 8, false);
@@ -461,7 +461,7 @@ int CPURicoh::Execute() {
 			P &= ~NFlag;
 		}
 
-		WriteMemory(add, value, false);
+		WriteMemory(add, (value & 0xFF), false);
 		if (!M) {
 			WriteMemory(add + 1, value >> 8, false);
 		}
@@ -535,7 +535,7 @@ int CPURicoh::Execute() {
 
 		CheckZFlag(value & A, true, false);
 
-		WriteMemory(add, result, true);
+		WriteMemory(add, (result & 0xFF), true);
 
 		if (!(P & MFlag)) {
 			WriteMemory(add + 1, (result & 0xFF00) >> 8, true);
@@ -605,7 +605,7 @@ int CPURicoh::Execute() {
 			P &= ~NFlag;
 		}
 
-		WriteMemory(add, value, true);
+		WriteMemory(add, (value & 0xFF), true);
 		if (!M) {
 			WriteMemory(add + 1, value >> 8, true);
 		}
@@ -666,7 +666,7 @@ int CPURicoh::Execute() {
 
 		CheckZFlag(value & A, true, false);
 
-		WriteMemory(add, result, false);
+		WriteMemory(add, (result & 0xFF), false);
 
 		if (!(P & MFlag)) {
 			WriteMemory(add + 1, (result & 0xFF00) >> 8, false);
@@ -730,7 +730,7 @@ int CPURicoh::Execute() {
 			P &= ~NFlag;
 		}
 
-		WriteMemory(add, value, false);
+		WriteMemory(add, (value & 0xFF), false);
 		if (!M) {
 			WriteMemory(add + 1, value >> 8, false);
 		}
@@ -2416,7 +2416,7 @@ int CPURicoh::Execute() {
 		// REP #const
 	case 0xC2: {
 
-		uint8_t value = GetValue(AddMode::Immediate, false);
+		uint8_t value = (uint8_t)GetValue(AddMode::Immediate, false);
 		P &= ~value;
 
 		if (P & XFlag) {
@@ -2455,10 +2455,34 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 4 : 3) + extraCycles;
 	}
 		// DEC dp
-	case 0xC6:
+	case 0xC6: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+		value--;
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), true);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 5 + c;
+	}
 		// CMP [dp]
 	case 0xC7: {
 
@@ -2521,10 +2545,30 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 5 : 4;
 	}
 		// DEC addr
-	case 0xCE:
+	case 0xCE: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+		}
+		value--;
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), false);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return 6 + c;
+	}
 		// CMP long
 	case 0xCF: {
 
@@ -2598,10 +2642,35 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
 		// DEC dp, X
-	case 0xD6:
+	case 0xD6: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= DP << 8;
+		add += X;
 
+		int c = 0;
+		if (DP & 0xFF) {
+			c++;
+		}
+
+		uint16_t value = ReadMemory(add, true);
+
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, true) << 8;
+			c += 2;
+		}
+		value--;
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), true);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, true);
+		}
+
+		return 6 + c;
+	}
 		// CMP [dp], Y
 	case 0xD7: {
 
@@ -2657,10 +2726,31 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
 		// DEC addr, X
-	case 0xDE:
+	case 0xDE: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		add += X;
 
+		uint16_t value = ReadMemory(add, false);
+
+		int c = 0;
+		if (!(P & MFlag)) {
+			value |= ReadMemory(add + 1, false) << 8;
+			c += 2;
+		}
+		value--;
+
+		CheckNFlag(value, true, false);
+		CheckZFlag(value, true, false);
+
+		WriteMemory(add, (value & 0xFF), false);
+		if (!(P & MFlag)) {
+			WriteMemory(add + 1, value >> 8, false);
+		}
+
+		return 7 + c;
+	}
 		// CMP long, X
 	case 0xDF: {
 
@@ -2687,7 +2777,7 @@ int CPURicoh::Execute() {
 		// SEP #const
 	case 0xE2: {
 
-		uint8_t value = GetValue(AddMode::Immediate, false);
+		uint8_t value = (uint8_t)GetValue(AddMode::Immediate, false);
 		P |= value;
 
 		return 3;
