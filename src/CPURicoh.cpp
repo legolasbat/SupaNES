@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestDEC.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestEOR.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,8 +125,8 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 7083) {
-		std::cout << " " << std::endl;
+	if (lines >= 13447) {
+		std::cout << " ";
 		fclose(stdout);
 	}
 	std::cout << " " << std::endl;
@@ -1183,10 +1183,14 @@ int CPURicoh::Execute() {
 		break;
 
 		// EOR (dp, X)
-	case 0x41:
+	case 0x41: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// WDM
 	case 0x42:
 
@@ -1197,30 +1201,42 @@ int CPURicoh::Execute() {
 		return 0;
 
 		// EOR sr, S
-	case 0x43:
+	case 0x43: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelative, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 5 : 4);
+	}
 		// MVP srcbk, destbk
 	case 0x44:
 
 		break;
 
 		// EOR dp
-	case 0x45:
+	case 0x45: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
+	}
 		// LSR dp
 	case 0x46:
 
 		break;
 
 		// EOR [dp]
-	case 0x47:
+	case 0x47: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// PHA
 	case 0x48:
 
@@ -1232,10 +1248,14 @@ int CPURicoh::Execute() {
 		return !(P & MFlag) ? 4 : 3;
 
 		// EOR #const
-	case 0x49:
+	case 0x49: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 3 : 2);
+	}
 		// LSR A
 	case 0x4A: {
 
@@ -1288,20 +1308,28 @@ int CPURicoh::Execute() {
 		break;
 
 		// EOR addr
-	case 0x4D:
+	case 0x4D: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 5 : 4);
+	}
 		// LSR addr
 	case 0x4E:
 
 		break;
 
 		// EOR long
-	case 0x4F:
+	case 0x4F: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 6 : 5);
+	}
 		// BVC nearlabel
 	case 0x50: {
 
@@ -1324,40 +1352,60 @@ int CPURicoh::Execute() {
 		return 2;
 	}
 		// EOR (dp), Y
-	case 0x51:
+	case 0x51: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// EOR (dp)
-	case 0x52:
+	case 0x52: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirect, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// EOR (sr, S), Y
-	case 0x53:
+	case 0x53: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 8 : 7);
+	}
 		// MVN srcbk, destbk
 	case 0x54:
 
 		break;
 
 		// EOR dp, X
-	case 0x55:
+	case 0x55: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// LSR dp, X
 	case 0x56:
 
 		break;
 
 		// EOR [dp], Y
-	case 0x57:
+	case 0x57: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectIndexedLong, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// CLI
 	case 0x58:
 
@@ -1366,10 +1414,14 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// EOR addr, Y
-	case 0x59:
+	case 0x59: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// PHY
 	case 0x5A:
 
@@ -1402,20 +1454,28 @@ int CPURicoh::Execute() {
 		return 4;
 	}
 		// EOR addr, X
-	case 0x5D:
+	case 0x5D: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// LSR addr, X
 	case 0x5E:
 
 		break;
 
 		// EOR long, X
-	case 0x5F:
+	case 0x5F: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
 
+		EOR(value);
+
+		return (!(P & MFlag) ? 6 : 5);
+	}
 		// RST
 	case 0x60: {
 
@@ -3632,4 +3692,44 @@ void CPURicoh::CPY(uint16_t value) {
 	}
 
 	CheckNFlag(value, false, true);
+}
+
+void CPURicoh::EOR(uint16_t value) {
+	if (!(P & MFlag)) {
+
+		A ^= value;
+
+		if (A == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A & 0x8000) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+	}
+	else {
+		uint8_t l = A & 0xFF;
+		A &= 0xFF00;
+		A |= (value ^ l);
+
+		if ((A & 0xFF) == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A & 0x80) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+	}
 }

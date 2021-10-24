@@ -72,6 +72,7 @@ private:
 	void CMP(uint16_t value);
 	void CPX(uint16_t value);
 	void CPY(uint16_t value);
+	void EOR(uint16_t value);
 
 	enum class AddMode {
 		Immediate,
