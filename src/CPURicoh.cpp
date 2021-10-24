@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestINC.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestJMP.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 7083) {
+	if (lines >= 2593) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -773,10 +773,20 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
 		// JSR long
-	case 0x22:
+	case 0x22: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
+		PB = ReadMemory(PC++, false);
 
+		Push(PB);
+		Push((PC & 0xFF00) >> 8);
+		Push(PC & 0xFF);
+
+		PC = add;
+
+		return 8;
+	}
 		// AND sr, S
 	case 0x23: {
 
@@ -1319,10 +1329,15 @@ int CPURicoh::Execute() {
 		return 3;
 
 		// JMP addr
-	case 0x4C:
+	case 0x4C: {
 
-		break;
+		uint16_t add = ReadMemory(PC++, false);
+		add |= ReadMemory(PC++, false) << 8;
 
+		PC = add;
+
+		return 3;
+	}
 		// EOR addr
 	case 0x4D: {
 
@@ -1492,7 +1507,7 @@ int CPURicoh::Execute() {
 
 		return (!(P & MFlag) ? 6 : 5);
 	}
-		// RST
+		// RTS
 	case 0x60: {
 
 		PC = Pull();
@@ -1608,15 +1623,27 @@ int CPURicoh::Execute() {
 		break;
 
 		// RTL
-	case 0x6B:
+	case 0x6B: {
 
-		break;
+		PC = Pull();
+		PC |= Pull() << 8;
+		PB = Pull();
 
+		return 6;
+	}
 		// JMP (addr)
-	case 0x6C:
+	case 0x6C: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= ReadMemory(PC++, false) << 8;
 
+		uint16_t add = ReadMemory(indAdd, false);
+		add |= ReadMemory(indAdd + 1, false) << 8;
+
+		PC = add;
+
+		return 5;
+	}
 		// ADC addr
 	case 0x6D: {
 
@@ -1780,10 +1807,19 @@ int CPURicoh::Execute() {
 		break;
 
 		// JMP (addr, X)
-	case 0x7C:
+	case 0x7C: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= ReadMemory(PC++, false) << 8;
+		indAdd += X;
 
+		uint16_t add = ReadMemory(indAdd, false);
+		add |= ReadMemory(indAdd + 1, false) << 8;
+
+		PC = add;
+
+		return 6;
+	}
 		// ADC addr, X
 	case 0x7D: {
 
@@ -2830,10 +2866,19 @@ int CPURicoh::Execute() {
 		break;
 
 		// JMP [addr]
-	case 0xDC:
+	case 0xDC: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= ReadMemory(PC++, false) << 8;
 
+		uint32_t add = ReadMemory(indAdd, false);
+		add |= ReadMemory(indAdd + 1, false) << 8;
+		PB = ReadMemory(indAdd + 2, false);
+
+		PC = add;
+
+		return 6;
+	}
 		// CMP addr, X
 	case 0xDD: {
 
@@ -3209,10 +3254,23 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// JSR (addr, X)
-	case 0xFC:
+	case 0xFC: {
 
-		break;
+		uint16_t indAdd = ReadMemory(PC++, false);
+		indAdd |= ReadMemory(PC++, false) << 8;
+		indAdd += X;
 
+		uint16_t add = ReadMemory(indAdd, false);
+		add |= ReadMemory(indAdd + 1, false) << 8;
+
+
+		Push((PC & 0xFF00) >> 8);
+		Push(PC & 0xFF);
+
+		PC = add;
+
+		return 8;
+	}
 		// SBC addr, X
 	case 0xFD:
 
