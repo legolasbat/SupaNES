@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestLSR.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestORA.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 5513) {
+	if (lines >= 13442) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -197,20 +197,28 @@ int CPURicoh::Execute() {
 		break;
 
 		// ORA (dp, X)
-	case 0x01:
+	case 0x01: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedIndirect, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// COP const
 	case 0x02:
 
 		break;
 
 		// ORA sr, S
-	case 0x03:
+	case 0x03: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelative, !(P & MFlag));
 
+		ORA(value);
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// TSB dp
 	case 0x04: {
 
@@ -245,10 +253,14 @@ int CPURicoh::Execute() {
 		break;
 
 		// ORA dp
-	case 0x05:
+	case 0x05: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Direct, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 4 : 3) + extraCycles;
+	}
 		// ASL dp
 	case 0x06: {
 
@@ -313,10 +325,14 @@ int CPURicoh::Execute() {
 		return 5 + c;
 	}
 		// ORA [dp]
-	case 0x07:
+	case 0x07: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 		// PHP
 	case 0x08:
 
@@ -325,10 +341,14 @@ int CPURicoh::Execute() {
 		return 3;
 
 		// ORA #const
-	case 0x09:
+	case 0x09: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Immediate, !(P & MFlag));
 
+		ORA(value);
+
+		return !(P & MFlag) ? 3 : 2;
+	}
 		// ASL A
 	case 0x0A: {
 
@@ -407,10 +427,14 @@ int CPURicoh::Execute() {
 		return 6 + c;
 	}
 		// ORA addr
-	case 0x0D:
+	case 0x0D: {
 
-		break;
+		uint16_t value = GetValue(AddMode::Absolute, !(P & MFlag));
 
+		ORA(value);
+
+		return !(P & MFlag) ? 5 : 4;
+	}
 		// ASL addr
 	case 0x0E: {
 
@@ -469,10 +493,14 @@ int CPURicoh::Execute() {
 		return M ? 6 : 8;
 	}
 		// ORA long
-	case 0x0F:
+	case 0x0F: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteLong, !(P & MFlag));
 
+		ORA(value);
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// BPL nearlabel
 	case 0x10: {
 
@@ -495,20 +523,32 @@ int CPURicoh::Execute() {
 		return 2;
 	}
 		// ORA (dp), Y
-	case 0x11:
+	case 0x11: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectIndexed, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// ORA (dp)
-	case 0x12:
+	case 0x12: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirect, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 6 : 5) + extraCycles;
+	}
 		// ORA (sr, S), Y
-	case 0x13:
+	case 0x13: {
 
-		break;
+		uint16_t value = GetValue(AddMode::StackRelativeIndirectIndexed, !(P & MFlag));
 
+		ORA(value);
+
+		return !(P & MFlag) ? 8 : 7;
+	}
 		// TRB dp
 	case 0x14: {
 
@@ -544,10 +584,14 @@ int CPURicoh::Execute() {
 		return 5 + c;
 	}
 		// ORA dp, X
-	case 0x15:
+	case 0x15: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndexedX, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// ASL dp, X
 	case 0x16: {
 
@@ -613,9 +657,14 @@ int CPURicoh::Execute() {
 		return 5 + c;
 	}
 		// ORA [dp], Y
-	case 0x17:
+	case 0x17: {
 
-		break;
+		uint16_t value = GetValue(AddMode::DirectIndirectLong, !(P & MFlag));
+
+		ORA(value);
+
+		return (!(P & MFlag) ? 7 : 6) + extraCycles;
+	}
 
 		// CLC
 	case 0x18:
@@ -625,10 +674,14 @@ int CPURicoh::Execute() {
 		return 2;
 
 		// ORA addr, Y
-	case 0x19:
+	case 0x19: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedY, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// INC A
 	case 0x1A:
 
@@ -683,10 +736,14 @@ int CPURicoh::Execute() {
 		return 6 + c;
 	}
 		// ORA addr, X
-	case 0x1D:
+	case 0x1D: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedX, !(P & MFlag));
 
+		ORA(value);
+
+		return (!(P & MFlag) ? 5 : 4) + extraCycles;
+	}
 		// ASL addr, X
 	case 0x1E: {
 
@@ -746,10 +803,14 @@ int CPURicoh::Execute() {
 		return M ? 7 : 9;
 	}
 		// ORA long, X
-	case 0x1F:
+	case 0x1F: {
 
-		break;
+		uint16_t value = GetValue(AddMode::AbsoluteIndexedLong, !(P & MFlag));
 
+		ORA(value);
+
+		return !(P & MFlag) ? 6 : 5;
+	}
 		// JSR addr
 	case 0x20: {
 
@@ -3408,7 +3469,7 @@ int CPURicoh::Execute() {
 		// NOP
 	case 0xEA:
 
-		break;
+		return 2;
 
 		// XBA
 	case 0xEB: {
@@ -4352,6 +4413,45 @@ void CPURicoh::EOR(uint16_t value) {
 		uint8_t l = A & 0xFF;
 		A &= 0xFF00;
 		A |= (value ^ l);
+
+		if ((A & 0xFF) == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A & 0x80) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+	}
+}
+
+void CPURicoh::ORA(uint16_t value) {
+
+	if (!(P & MFlag)) {
+
+		A |= value;
+
+		if (A == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		if (A & 0x8000) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+	}
+	else {
+		A |= (value & 0x00FF);
 
 		if ((A & 0xFF) == 0) {
 			P |= ZFlag;

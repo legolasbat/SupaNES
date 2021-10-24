@@ -73,6 +73,7 @@ private:
 	void CPX(uint16_t value);
 	void CPY(uint16_t value);
 	void EOR(uint16_t value);
+	void ORA(uint16_t value);
 
 	enum class AddMode {
 		Immediate,
