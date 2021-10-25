@@ -33,7 +33,7 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestSTR.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestTRN.txt", "a", stdout) == NULL) {
 			started = true;
 		}
 	}
@@ -125,7 +125,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 12956) {
+	if (lines >= 15414) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -729,7 +729,9 @@ int CPURicoh::Execute() {
 		// TCS
 	case 0x1B:
 
-		break;
+		SP = A;
+
+		return 2;
 
 		// TRB addr
 	case 0x1C: {
@@ -1472,7 +1474,12 @@ int CPURicoh::Execute() {
 		// TSC
 	case 0x3B:
 
-		break;
+		A = SP;
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return 2;
 
 		// BIT addr, X
 	case 0x3C: {
@@ -2038,8 +2045,19 @@ int CPURicoh::Execute() {
 
 		DP = A;
 
-		CheckNFlag(DP, false, false);
-		CheckZFlag(DP, false ,false);
+		if (DP & 0x8000) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (DP == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
 
 		return 2;
 
@@ -2689,7 +2707,23 @@ int CPURicoh::Execute() {
 		// TDC
 	case 0x7B:
 
-		break;
+		A = DP;
+
+		if (A & 0x8000) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if (A == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
+
+		return 2;
 
 		// JMP (addr, X)
 	case 0x7C: {
@@ -2978,7 +3012,18 @@ int CPURicoh::Execute() {
 		// TXA
 	case 0x8A:
 
-		break;
+		if (!(P & MFlag)) {
+			A = X;
+		}
+		else {
+			A &= 0xFF00;
+			A |= (X & 0xFF);
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return 2;
 
 		// PHB
 	case 0x8B:
@@ -3228,7 +3273,18 @@ int CPURicoh::Execute() {
 		// TYA
 	case 0x98:
 
-		break;
+		if (!(P & MFlag)) {
+			A = Y;
+		}
+		else {
+			A &= 0xFF00;
+			A |= (Y & 0xFF);
+		}
+
+		CheckNFlag(A, true, false);
+		CheckZFlag(A, true, false);
+
+		return 2;
 
 		// STA addr, Y
 	case 0x99: {
@@ -3255,7 +3311,18 @@ int CPURicoh::Execute() {
 		// TXY
 	case 0x9B:
 
-		break;
+		if (!(P & XFlag)) {
+			Y = X;
+		}
+		else {
+			Y &= 0xFF00;
+			Y |= (X & 0xFF);
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return 2;
 
 		// STZ addr
 	case 0x9C: {
@@ -3457,7 +3524,18 @@ int CPURicoh::Execute() {
 		// TAY
 	case 0xA8:
 
-		break;
+		if (!(P & XFlag)) {
+			Y = A;
+		}
+		else {
+			Y &= 0xFF00;
+			Y |= (A & 0xFF);
+		}
+
+		CheckNFlag(Y, false, true);
+		CheckZFlag(Y, false, true);
+
+		return 2;
 
 		// LDA #const
 	case 0xA9: {
@@ -3479,7 +3557,18 @@ int CPURicoh::Execute() {
 		// TAX
 	case 0xAA:
 
-		break;
+		if (!(P & XFlag)) {
+			X = A;
+		}
+		else {
+			X &= 0xFF00;
+			X |= (A & 0xFF);
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return 2;
 
 		// PLB
 	case 0xAB:
@@ -3726,12 +3815,34 @@ int CPURicoh::Execute() {
 		// TSX
 	case 0xBA:
 
-		break;
+		if (!(P & XFlag)) {
+			X = SP;
+		}
+		else {
+			X &= 0xFF00;
+			X |= (SP & 0xFF);
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return 2;
 
 		// TYX
 	case 0xBB:
 
-		break;
+		if (!(P & XFlag)) {
+			X = Y;
+		}
+		else {
+			X &= 0xFF00;
+			X |= (Y & 0xFF);
+		}
+
+		CheckNFlag(X, false, true);
+		CheckZFlag(X, false, true);
+
+		return 2;
 
 		// LDY addr, X
 	case 0xBC:
@@ -4372,8 +4483,19 @@ int CPURicoh::Execute() {
 
 		A = high | (low << 8);
 
-		CheckNFlag(A, true, false);
-		CheckZFlag(A, true, false);
+		if (A & 0x80) {
+			P |= NFlag;
+		}
+		else {
+			P &= ~NFlag;
+		}
+
+		if ((A & 0xFF) == 0) {
+			P |= ZFlag;
+		}
+		else {
+			P &= ~ZFlag;
+		}
 
 		return 3;
 	}
@@ -4610,9 +4732,18 @@ int CPURicoh::Execute() {
 		// XCE
 	case 0xFB:
 
-		emulationMode = false;
+		emulationMode = !emulationMode;
 
-		P |= CFlag;
+		if (emulationMode) {
+			P &= ~CFlag;
+			P |= (MFlag | XFlag);
+			X &= 0xFF;
+			Y &= 0xFF;
+			SP = 0x01FF;
+		}
+		else {
+			P |= CFlag;
+		}
 
 		return 2;
 
