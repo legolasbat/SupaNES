@@ -50,7 +50,6 @@ private:
 
 	bool movActive = false;
 	uint8_t srcbk = 0;
-	uint8_t destbk = 0;
 
 	uint8_t opcode = 0;
 	int cycles = 0;

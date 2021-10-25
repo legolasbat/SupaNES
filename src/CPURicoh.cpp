@@ -27,7 +27,7 @@ CPURicoh::CPURicoh()
 }
 
 FILE* LOG;
-bool started = false;
+bool started = true;
 int lines = 0;
 
 int CPURicoh::Clock()
@@ -1673,12 +1673,12 @@ int CPURicoh::Execute() {
 
 		if (!movActive) {
 			srcbk = ReadMemory((PB << 16) | PC++, true);
-			destbk = ReadMemory((PB << 16) | PC++, true);
+			DB = ReadMemory((PB << 16) | PC++, true);
 			PC -= 2;
 		}
 
 		uint8_t value = ReadMemory((srcbk << 16) | X, true);
-		WriteMemory((destbk << 16) | Y, value, true);
+		WriteMemory((DB << 16) | Y, value, true);
 
 		A--;
 		X--;
@@ -1975,12 +1975,12 @@ int CPURicoh::Execute() {
 
 		if (!movActive) {
 			srcbk = ReadMemory((PB << 16) | PC++, true);
-			destbk = ReadMemory((PB << 16) | PC++, true);
+			DB = ReadMemory((PB << 16) | PC++, true);
 			PC -= 2;
 		}
 
 		uint8_t value = ReadMemory((srcbk << 16) | X, true);
-		WriteMemory((destbk << 16) | Y, value, true);
+		WriteMemory((DB << 16) | Y, value, true);
 
 		A--;
 		X++;
