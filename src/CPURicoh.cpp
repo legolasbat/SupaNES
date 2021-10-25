@@ -33,13 +33,14 @@ int lines = 0;
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestTRN.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "TestMOV.txt", "a", stdout) == NULL) {
 			started = true;
+			WriteMemory(0x0, 0xB5, true);
 		}
 	}
 
 	if (cycles == 0) {
-		opcode = mem->ReadMemory((PB << 16) | PC++);
+		opcode = ReadMemory((PB << 16) | PC++, true);
 		//std::cout << std::hex << (int)opcode << std::endl;
 
 		Debug();
@@ -125,7 +126,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 15414) {
+	if (lines >= 7277) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -229,10 +230,29 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
 		// COP const
-	case 0x02:
+	case 0x02: {
 
-		break;
+		if (!emulationMode)
+			Push(PB);
 
+		PC++;
+		Push(PC >> 8);
+		Push(PC & 0xFF);
+
+		Push(P);
+
+		P |= IFlag;
+		P &= ~DFlag;
+
+		PB = 0;
+
+		uint16_t add = ReadMemory(0xFFE4, true);
+		add |= ReadMemory(0xFFE5, true) << 8;
+
+		PC = add;
+
+		return emulationMode ? 7 : 8;
+	}
 		// ORA sr, S
 	case 0x03: {
 
@@ -245,7 +265,7 @@ int CPURicoh::Execute() {
 		// TSB dp
 	case 0x04: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -287,7 +307,7 @@ int CPURicoh::Execute() {
 		// ASL dp
 	case 0x06: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -429,8 +449,8 @@ int CPURicoh::Execute() {
 		// TSB addr
 	case 0x0C: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -464,8 +484,8 @@ int CPURicoh::Execute() {
 		// ASL addr
 	case 0x0E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -530,7 +550,7 @@ int CPURicoh::Execute() {
 		// BPL nearlabel
 	case 0x10: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (!(P & NFlag)) {
 
@@ -578,7 +598,7 @@ int CPURicoh::Execute() {
 		// TRB dp
 	case 0x14: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -621,7 +641,7 @@ int CPURicoh::Execute() {
 		// ASL dp, X
 	case 0x16: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 		add += X;
 
@@ -736,8 +756,8 @@ int CPURicoh::Execute() {
 		// TRB addr
 	case 0x1C: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -775,8 +795,8 @@ int CPURicoh::Execute() {
 		// ASL addr, X
 	case 0x1E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		uint16_t value = ReadMemory(add, false);
@@ -842,8 +862,8 @@ int CPURicoh::Execute() {
 		// JSR addr
 	case 0x20: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		Push((PC & 0xFF00) >> 8);
 		Push(PC & 0xFF);
@@ -864,9 +884,9 @@ int CPURicoh::Execute() {
 		// JSR long
 	case 0x22: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		PB = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
+		PB = ReadMemory((PB << 16) | PC++, true);
 
 		Push(PB);
 		Push((PC & 0xFF00) >> 8);
@@ -950,7 +970,7 @@ int CPURicoh::Execute() {
 		// ROL dp
 	case 0x26: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -1182,8 +1202,8 @@ int CPURicoh::Execute() {
 		// ROL addr
 	case 0x2E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -1253,7 +1273,7 @@ int CPURicoh::Execute() {
 		// BMI nearlabel
 	case 0x30: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (P & NFlag) {
 
@@ -1363,7 +1383,7 @@ int CPURicoh::Execute() {
 		// ROL dp, X
 	case 0x36: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 		add += X;
 
@@ -1542,8 +1562,8 @@ int CPURicoh::Execute() {
 		// ROL addr, X
 	case 0x3E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		uint16_t value = ReadMemory(add, false);
@@ -1635,11 +1655,9 @@ int CPURicoh::Execute() {
 		// WDM
 	case 0x42:
 
-		std::cout << "WDM" << std::endl;
-		fclose(stdout);
-		std::cout << " " << std::endl;
+		PC++;
 
-		return 0;
+		return 2;
 
 		// EOR sr, S
 	case 0x43: {
@@ -1651,10 +1669,32 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 5 : 4);
 	}
 		// MVP srcbk, destbk
-	case 0x44:
+	case 0x44: {
 
-		break;
+		if (!movActive) {
+			srcbk = ReadMemory((PB << 16) | PC++, true);
+			destbk = ReadMemory((PB << 16) | PC++, true);
+			PC -= 2;
+		}
 
+		uint8_t value = ReadMemory((srcbk << 16) | X, true);
+		WriteMemory((destbk << 16) | Y, value, true);
+
+		A--;
+		X--;
+		Y--;
+
+		if (A == 0xFFFF) {
+			movActive = false;
+			PC += 2;
+		}
+		else {
+			movActive = true;
+			PC--;
+		}
+
+		return 7;
+	}
 		// EOR dp
 	case 0x45: {
 
@@ -1667,7 +1707,7 @@ int CPURicoh::Execute() {
 		// LSR dp
 	case 0x46: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -1801,8 +1841,8 @@ int CPURicoh::Execute() {
 		// JMP addr
 	case 0x4C: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		PC = add;
 
@@ -1820,8 +1860,8 @@ int CPURicoh::Execute() {
 		// LSR addr
 	case 0x4E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -1885,7 +1925,7 @@ int CPURicoh::Execute() {
 		// BVC nearlabel
 	case 0x50: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (!(P & VFlag)) {
 
@@ -1931,10 +1971,32 @@ int CPURicoh::Execute() {
 		return (!(P & MFlag) ? 8 : 7);
 	}
 		// MVN srcbk, destbk
-	case 0x54:
+	case 0x54: {
 
-		break;
+		if (!movActive) {
+			srcbk = ReadMemory((PB << 16) | PC++, true);
+			destbk = ReadMemory((PB << 16) | PC++, true);
+			PC -= 2;
+		}
 
+		uint8_t value = ReadMemory((srcbk << 16) | X, true);
+		WriteMemory((destbk << 16) | Y, value, true);
+
+		A--;
+		X++;
+		Y++;
+
+		if (A == 0xFFFF) {
+			movActive = false;
+			PC += 2;
+		}
+		else {
+			movActive = true;
+			PC--;
+		}
+
+		return 7;
+	}
 		// EOR dp, X
 	case 0x55: {
 
@@ -1947,7 +2009,7 @@ int CPURicoh::Execute() {
 		// LSR dp, X
 	case 0x56: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 		add += X;
 
@@ -2064,9 +2126,9 @@ int CPURicoh::Execute() {
 		// JMP long
 	case 0x5C: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		PB = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
+		PB = ReadMemory((PB << 16) | PC++, true);
 
 		PC = add;
 
@@ -2084,8 +2146,8 @@ int CPURicoh::Execute() {
 		// LSR addr, X
 	case 0x5E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		uint16_t value = ReadMemory(add, false);
@@ -2167,8 +2229,8 @@ int CPURicoh::Execute() {
 		// PER label
 	case 0x62: {
 
-		int16_t offset = ReadMemory(PC++, false);
-		offset |= ReadMemory(PC++, false) << 8;
+		int16_t offset = ReadMemory((PB << 16) | PC++, true);
+		offset |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		offset += PC;
 
@@ -2189,7 +2251,7 @@ int CPURicoh::Execute() {
 		// STZ dp
 	case 0x64: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 
@@ -2220,7 +2282,7 @@ int CPURicoh::Execute() {
 		// ROR dp
 	case 0x66: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -2400,8 +2462,8 @@ int CPURicoh::Execute() {
 		// JMP (addr)
 	case 0x6C: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= ReadMemory(PC++, false) << 8;
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
+		indAdd |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t add = ReadMemory(indAdd, false);
 		add |= ReadMemory(indAdd + 1, false) << 8;
@@ -2422,8 +2484,8 @@ int CPURicoh::Execute() {
 		// ROR addr
 	case 0x6E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -2493,7 +2555,7 @@ int CPURicoh::Execute() {
 		// BVS nearlabel
 	case 0x70: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (P & VFlag) {
 
@@ -2541,7 +2603,7 @@ int CPURicoh::Execute() {
 		// STZ dp, X
 	case 0x74: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 		add += X;
@@ -2573,7 +2635,7 @@ int CPURicoh::Execute() {
 		// ROR dp, X
 	case 0x76: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 		add += X;
 
@@ -2728,8 +2790,8 @@ int CPURicoh::Execute() {
 		// JMP (addr, X)
 	case 0x7C: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= ReadMemory(PC++, false) << 8;
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
+		indAdd |= ReadMemory((PB << 16) | PC++, true) << 8;
 		indAdd += X;
 
 		uint16_t add = ReadMemory(indAdd, false);
@@ -2751,8 +2813,8 @@ int CPURicoh::Execute() {
 		// ROR addr, X
 	case 0x7E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		uint16_t value = ReadMemory(add, false);
@@ -2823,7 +2885,7 @@ int CPURicoh::Execute() {
 		// BRA nearlabel
 	case 0x80: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		int c = 0;
 
@@ -2838,7 +2900,7 @@ int CPURicoh::Execute() {
 		// STA (dp, X)
 	case 0x81: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 		indAdd += X;
 
@@ -2861,8 +2923,8 @@ int CPURicoh::Execute() {
 		// BRL label
 	case 0x82: {
 
-		int16_t offset = ReadMemory(PC++, false);
-		offset |= ReadMemory(PC++, false) << 8;
+		int16_t offset = ReadMemory((PB << 16) | PC++, true);
+		offset |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		PC += offset;
 
@@ -2871,7 +2933,7 @@ int CPURicoh::Execute() {
 		// STA sr, S
 	case 0x83: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add += SP;
 
 		WriteMemory(add, A & 0xFF, true);
@@ -2885,7 +2947,7 @@ int CPURicoh::Execute() {
 		// STY dp
 	case 0x84: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 
@@ -2907,7 +2969,7 @@ int CPURicoh::Execute() {
 		// STA dp
 	case 0x85: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 
@@ -2929,7 +2991,7 @@ int CPURicoh::Execute() {
 		// STX dp
 	case 0x86: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 
@@ -2951,7 +3013,7 @@ int CPURicoh::Execute() {
 		// STA [dp]
 	case 0x87: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		int c = 0;
@@ -3035,8 +3097,8 @@ int CPURicoh::Execute() {
 		// STY addr
 	case 0x8C: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		WriteMemory(add, Y & 0xFF, false);
 
@@ -3049,8 +3111,8 @@ int CPURicoh::Execute() {
 		// STA addr
 	case 0x8D: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		WriteMemory(add, A & 0xFF, false);
 
@@ -3063,8 +3125,8 @@ int CPURicoh::Execute() {
 		// STX addr
 	case 0x8E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		WriteMemory(add, X & 0xFF, false);
 
@@ -3077,9 +3139,9 @@ int CPURicoh::Execute() {
 		// STA long
 	case 0x8F: {
 
-		uint32_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		add |= ReadMemory(PC++, false) << 16;
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
+		add |= ReadMemory((PB << 16) | PC++, true) << 16;
 
 		WriteMemory(add, A & 0xFF, true);
 
@@ -3092,7 +3154,7 @@ int CPURicoh::Execute() {
 		// BCC nearlabel
 	case 0x90: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (!(P & CFlag)) {
 
@@ -3113,7 +3175,7 @@ int CPURicoh::Execute() {
 		// STA (dp), Y
 	case 0x91: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		int c = 0;
@@ -3137,7 +3199,7 @@ int CPURicoh::Execute() {
 		// STA (dp)
 	case 0x92: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		int c = 0;
@@ -3159,7 +3221,7 @@ int CPURicoh::Execute() {
 		// STA (sr, S), Y
 	case 0x93: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd += SP;
 
 		uint16_t add = ReadMemory(indAdd, true);
@@ -3177,7 +3239,7 @@ int CPURicoh::Execute() {
 		// STY dp, X
 	case 0x94: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 		add += X;
@@ -3203,7 +3265,7 @@ int CPURicoh::Execute() {
 		// STA dp, X
 	case 0x95: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 		add += X;
@@ -3226,7 +3288,7 @@ int CPURicoh::Execute() {
 		// STX dp, Y
 	case 0x96: {
 
-		uint32_t add = ReadMemory(PC++, false);
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 		add += Y;
@@ -3249,7 +3311,7 @@ int CPURicoh::Execute() {
 		// STA [dp], Y
 	case 0x97: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		int c = 0;
@@ -3289,8 +3351,8 @@ int CPURicoh::Execute() {
 		// STA addr, Y
 	case 0x99: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += Y;
 
 		WriteMemory(add, A & 0xFF, false);
@@ -3327,8 +3389,8 @@ int CPURicoh::Execute() {
 		// STZ addr
 	case 0x9C: {
 
-		uint16_t dir = ReadMemory(PC++, false);
-		dir |= ReadMemory(PC++, false) << 8;
+		uint16_t dir = ReadMemory((PB << 16) | PC++, true);
+		dir |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		WriteMemory(dir, 0, false);
 
@@ -3341,8 +3403,8 @@ int CPURicoh::Execute() {
 		// STA addr, X
 	case 0x9D: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		WriteMemory(add, A & 0xFF, false);
@@ -3356,8 +3418,8 @@ int CPURicoh::Execute() {
 		// STZ addr, X
 	case 0x9E: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		WriteMemory(add, 0, false);
@@ -3371,9 +3433,9 @@ int CPURicoh::Execute() {
 		// STA long, X
 	case 0x9F: {
 
-		uint32_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		add |= ReadMemory(PC++, false) << 16;
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
+		add |= ReadMemory((PB << 16) | PC++, true) << 16;
 
 		add += X;
 
@@ -3651,7 +3713,7 @@ int CPURicoh::Execute() {
 		// BCS nearlabel
 	case 0xB0: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (P & CFlag) {
 
@@ -3974,7 +4036,7 @@ int CPURicoh::Execute() {
 		// DEC dp
 	case 0xC6: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -4086,8 +4148,8 @@ int CPURicoh::Execute() {
 		// DEC addr
 	case 0xCE: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -4126,7 +4188,7 @@ int CPURicoh::Execute() {
 		// BNE nearlabel
 	case 0xD0: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (!(P & ZFlag)) {
 
@@ -4175,7 +4237,7 @@ int CPURicoh::Execute() {
 		// PEI (dp)
 	case 0xD4: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		int c = 0;
@@ -4203,7 +4265,7 @@ int CPURicoh::Execute() {
 		// DEC dp, X
 	case 0xD6: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 		add += X;
 
@@ -4279,8 +4341,8 @@ int CPURicoh::Execute() {
 		// JMP [addr]
 	case 0xDC: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= ReadMemory(PC++, false) << 8;
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
+		indAdd |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint32_t add = ReadMemory(indAdd, false);
 		add |= ReadMemory(indAdd + 1, false) << 8;
@@ -4302,8 +4364,8 @@ int CPURicoh::Execute() {
 		// DEC addr, X
 	case 0xDE: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		uint16_t value = ReadMemory(add, false);
@@ -4402,7 +4464,7 @@ int CPURicoh::Execute() {
 		// INC dp
 	case 0xE6: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		int c = 0;
@@ -4521,8 +4583,8 @@ int CPURicoh::Execute() {
 		// INC addr
 	case 0xEE: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		uint16_t value = ReadMemory(add, false);
 
@@ -4561,7 +4623,7 @@ int CPURicoh::Execute() {
 		// BEQ nearlabel
 	case 0xF0: {
 
-		int8_t offset = ReadMemory(PC++, false);
+		int8_t offset = ReadMemory((PB << 16) | PC++, true);
 
 		if (P & ZFlag) {
 
@@ -4609,8 +4671,8 @@ int CPURicoh::Execute() {
 		// PEA addr
 	case 0xF4: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		Push(add >> 8);
 		Push(add & 0xFF);
@@ -4629,7 +4691,7 @@ int CPURicoh::Execute() {
 		// INC dp, X
 	case 0xF6: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 		add += X;
 
@@ -4750,8 +4812,8 @@ int CPURicoh::Execute() {
 		// JSR (addr, X)
 	case 0xFC: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
-		indAdd |= ReadMemory(PC++, false) << 8;
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
+		indAdd |= ReadMemory((PB << 16) | PC++, true) << 8;
 		indAdd += X;
 
 		uint16_t add = ReadMemory(indAdd, false);
@@ -4777,8 +4839,8 @@ int CPURicoh::Execute() {
 		// INC addr, X
 	case 0xFE: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 		add += X;
 
 		uint16_t value = ReadMemory(add, false);
@@ -4830,17 +4892,17 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 	switch (addMode) {
 
 	case AddMode::Immediate: {
-		value = ReadMemory(PC++, false);
+		value = ReadMemory((PB << 16) | PC++, true);
 
 		if (is16) {
-			value |= ReadMemory(PC++, false) << 8;
+			value |= ReadMemory((PB << 16) | PC++, true) << 8;
 		}
 		break;
 	}
 
 	case AddMode::Absolute: {
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		value = ReadMemory(add, false);
 
@@ -4853,9 +4915,9 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::AbsoluteLong: {
 
-		uint32_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		add |= ReadMemory(PC++, false) << 16;
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
+		add |= ReadMemory((PB << 16) | PC++, true) << 16;
 
 		value = ReadMemory(add, true);
 
@@ -4868,8 +4930,8 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::AbsoluteIndexedX: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		if (!(P & XFlag) || ((add & 0xFF00) != ((add + X) & 0xFF00))) {
 			extraCycles++;
@@ -4887,8 +4949,8 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::AbsoluteIndexedY: {
 
-		uint16_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
 
 		if (!(P & XFlag) || ((add & 0xFF00) != ((add + X) & 0xFF00))) {
 			extraCycles++;
@@ -4906,9 +4968,9 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::AbsoluteIndexedLong: {
 
-		uint32_t add = ReadMemory(PC++, false);
-		add |= ReadMemory(PC++, false) << 8;
-		add |= ReadMemory(PC++, false) << 16;
+		uint32_t add = ReadMemory((PB << 16) | PC++, true);
+		add |= ReadMemory((PB << 16) | PC++, true) << 8;
+		add |= ReadMemory((PB << 16) | PC++, true) << 16;
 
 		add += X;
 
@@ -4923,7 +4985,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::Direct: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= DP << 8;
 
 		if (DP & 0xFF) {
@@ -4941,7 +5003,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndirect: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		if (DP & 0xFF) {
@@ -4962,7 +5024,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndirectLong: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		if (DP & 0xFF) {
@@ -4984,7 +5046,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndirectIndexedLong: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		if (DP & 0xFF) {
@@ -5007,7 +5069,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndirectIndexed: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 
 		if (DP & 0xFF) {
@@ -5033,7 +5095,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndexedIndirect: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd |= DP << 8;
 		indAdd += X;
 
@@ -5055,7 +5117,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndexedX: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 		add += X;
@@ -5075,7 +5137,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::DirectIndexedY: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 
 		add |= DP << 8;
 		add += Y;
@@ -5095,7 +5157,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::StackRelative: {
 
-		uint16_t add = ReadMemory(PC++, false);
+		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add += SP;
 
 		value = ReadMemory(add, true);
@@ -5109,7 +5171,7 @@ uint16_t CPURicoh::GetValue(AddMode addMode, bool is16)
 
 	case AddMode::StackRelativeIndirectIndexed: {
 
-		uint16_t indAdd = ReadMemory(PC++, false);
+		uint16_t indAdd = ReadMemory((PB << 16) | PC++, true);
 		indAdd += SP;
 
 		uint16_t add = ReadMemory(indAdd, true);
