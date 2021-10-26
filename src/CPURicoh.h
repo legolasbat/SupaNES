@@ -54,6 +54,15 @@ private:
 	uint8_t opcode = 0;
 	int cycles = 0;
 
+	// Native mode vectors
+	uint16_t COPVector;		// 0x00FFE4
+	uint16_t BRKVector;		// 0x00FFE6
+	uint16_t NMIVector;		// 0x00FFEA
+	uint16_t IRQVector;		// 0x00FFEE
+
+	// Emulation mode vectors
+	uint16_t ResetVector;	// 0x00FFFC
+
 	Memory* mem;
 
 	uint8_t ReadMemory(uint32_t add, bool isLong);
@@ -116,6 +125,8 @@ public:
 	void SetMemory(Memory* mem) {
 		this->mem = mem;
 	}
+
+	void SetVectors(uint16_t vectors[16]);
 
 	uint8_t ReadCPU(uint32_t add);
 	void WriteCPU(uint32_t add, uint8_t value);

@@ -15,6 +15,7 @@ public:
 
 	uint8_t ReadMemory(uint32_t add);
 	void WriteMemory(uint32_t add, uint8_t value);
+	void SetVectors(uint16_t vectors[16]);
 
 private:
 	

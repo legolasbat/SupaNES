@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
         // Main Loop
         if (snesRunning) {
             cpu->Clock();
-        }        
+        }
 
         // Events management
         handleInput();

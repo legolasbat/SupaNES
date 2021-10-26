@@ -161,6 +161,17 @@ void CPURicoh::Push(uint8_t value) {
 	WriteMemory(SP--, value, true);
 }
 
+void CPURicoh::SetVectors(uint16_t vectors[16])
+{
+	COPVector = vectors[2];
+	BRKVector = vectors[3];
+	NMIVector = vectors[5];
+	IRQVector = vectors[7];
+
+	ResetVector = vectors[14];
+	PC = ResetVector;
+}
+
 uint8_t CPURicoh::ReadCPU(uint32_t add) {
 
 	uint8_t value = 0;

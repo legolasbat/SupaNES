@@ -138,7 +138,10 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		uint32_t checksums = 0;
 		ifs.read((char*)&checksums, sizeof(uint32_t));
 
-		// TODO: Interrupt Vectors
+		// Interrupt Vectors
+		uint16_t vectors[16];
+		ifs.read((char*)&vectors, sizeof(uint16_t) * 16);
+		mem->SetVectors(vectors);
 
 		// TODO: Initialize memory
 		ROM.resize(romSizeByte);
