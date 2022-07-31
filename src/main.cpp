@@ -1,8 +1,7 @@
 #include "SDL.h"
 #include "SDL_syswm.h"
 
-#include "Cartridge.h"
-#include "Memory.h"
+#include "SupaNES.h"
 
 #include <iostream>
 #include <commdlg.h>
@@ -16,9 +15,7 @@ SDL_Event event;
 bool running = true;
 bool snesRunning = false;
 
-Memory* memory;
-Cartridge* cart;
-CPURicoh* cpu;
+SupaNES* supaNES;
 
 void handleInput();
 HMENU CreateMenuBar();
@@ -35,7 +32,8 @@ int main(int argc, char* argv[]) {
     SDL_RenderSetLogicalSize(renderer, 256, 224);
     SDL_SetWindowResizable(win, SDL_TRUE);
 
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 224);
+    //texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 224);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, 256, 224);
 
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -52,25 +50,29 @@ int main(int argc, char* argv[]) {
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
-    cpu = new CPURicoh();
-    memory = new Memory(cpu);
-    cart = new Cartridge(memory);
+    supaNES = new SupaNES();
 
     while (running) {
 
         // Main Loop
         if (snesRunning) {
-            cpu->Clock();
+            supaNES->Clock();
+        }
+        else {
+            // Events management
+            handleInput();
         }
 
-        // Events management
-        handleInput();
+        if (snesRunning && supaNES->ppu->IsFrameCompleted()) {
 
-        if (snesRunning) {
+            // Events management
+            handleInput();
+
             // Graphics
             SDL_RenderClear(renderer);
             // TODO:
             //  SDL_UpdateTexture
+            supaNES->ppu->GetFrame();
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
         }
@@ -109,7 +111,7 @@ void handleInput() {
                         ofn.Flags = OFN_DONTADDTORECENT | OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
                         if (GetOpenFileName(&ofn) == TRUE) {
-                            snesRunning = cart->LoadRom(ofn);
+                            snesRunning = supaNES->cart->LoadRom(ofn);
                         }
                     }
 

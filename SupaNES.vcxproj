@@ -84,15 +84,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\APU.cpp" />
+    <ClCompile Include="src\PPU.cpp" />
     <ClCompile Include="src\CPURicoh.cpp" />
     <ClCompile Include="src\Memory.cpp" />
     <ClCompile Include="src\Cartridge.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\SupaNES.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\APU.h" />
+    <ClInclude Include="src\PPU.h" />
     <ClInclude Include="src\CPURicoh.h" />
     <ClInclude Include="src\Memory.h" />
     <ClInclude Include="src\Cartridge.h" />
+    <ClInclude Include="src\SupaNES.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
