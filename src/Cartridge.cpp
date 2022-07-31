@@ -7,7 +7,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 	ifs.open(gameDir.lpstrFile, std::ifstream::binary);
 	if (ifs.is_open()) {
 
-		int fileSize = ifs.tellg();
+		int fileSize = (int)ifs.tellg();
 		ifs.seekg(0, std::ios::end);
 		fileSize = (int)ifs.tellg() - fileSize;
 		std::cout << "Size: " << fileSize << " bytes" << std::endl;
@@ -50,9 +50,8 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 				std::cout << "Correct checksum. HiROM" << std::endl;
 			}
 			else {
-				std::cout << "ROM type not handled but..." << std::endl;
-				//return false;
-				headerDir = 0x7FC0 + offset;
+				std::cout << "ROM type not handled" << std::endl;
+				return false;
 			}
 		}
 
@@ -93,7 +92,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 
 		if ((cartType & 0x0F) > 0x2) {
 			// TODO: coprocessors
-			std::cout << "Coprocessor not handled: " << ROM_coprocessor_string.at(cartType >> 8) << std::endl;
+			std::cout << "Coprocessor not handled: " << ROM_coprocessor_string.at(cartType >> 4) << std::endl;
 			return false;
 		}
 
@@ -101,7 +100,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		uint8_t romSize = 0;
 		ifs.read((char*)&romSize, sizeof(uint8_t));
 		std::cout << "- ROM Size: ";
-		int romSizeByte = pow(2, romSize) * 1024;
+		int romSizeByte = (int)(pow(2, romSize) * 1024);
 		std::cout << romSizeByte << " bytes" << std::endl;
 
 		// RAM Size
@@ -110,7 +109,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 		std::cout << "- RAM Size: ";
 		int ramSizeByte = 0;
 		if (ramSize != 0)
-			ramSizeByte = pow(2, ramSize) * 1024;
+			ramSizeByte = (int)(pow(2, ramSize) * 1024);
 		std::cout << ramSizeByte << " bytes" << std::endl;
 
 		// Region
@@ -156,7 +155,7 @@ bool Cartridge::LoadRom(OPENFILENAME gameDir) {
 	return true;
 }
 
-uint8_t Cartridge::ReadRom(uint16_t add)
+uint8_t Cartridge::ReadRom(uint32_t add)
 {
 	uint8_t bank = (add & 0x00FF0000) >> 16;
 	uint8_t page = (add & 0x0000FF00) >> 8;
@@ -173,11 +172,11 @@ uint8_t Cartridge::ReadRom(uint16_t add)
 		if (page >= 0x80) {
 			// ROM
 			if (bank >= 0x80) {
-
+				std::cout << "Reading ROM not mirror not handled" << std::endl;
 			}
 			// Mirror ROM
 			else {
-				value = ROM.at(add - 0x8000);
+				value = ROM.at((((add & 0xFF8000) - 0x8000) / 2) + (add & 0x7FFF));
 			}
 		}
 		// Check bottom half
@@ -188,7 +187,7 @@ uint8_t Cartridge::ReadRom(uint16_t add)
 			}
 			// ROM bottom half 4Q
 			else if (bank >= 0xC0 && bank < 0xF0) {
-
+				std::cout << "Reading ROM mirror Q4 not handled" << std::endl;
 			}
 			// SRAM 4Q
 			else if (bank >= 0xF0) {
@@ -198,4 +197,28 @@ uint8_t Cartridge::ReadRom(uint16_t add)
 	}
 
 	return value;
+}
+
+void Cartridge::WriteRom(uint32_t add, uint8_t value) {
+	uint8_t bank = (add & 0x00FF0000) >> 16;
+	uint8_t page = (add & 0x0000FF00) >> 8;
+
+	// Check bank range
+	if (bank != 0x7E && bank != 0x7F) {
+
+		//std::cout << (int)add << std::endl;
+		// Check page range
+
+		// Check bottom half
+		if (page < 0x80) {
+			// SRAM 2Q
+			if (bank >= 0x40 && bank < 0x7E) {
+				std::cout << "SRAM not handled" << std::endl;
+			}
+			// SRAM 4Q
+			else if (bank >= 0xF0) {
+				std::cout << "SRAM not handled" << std::endl;
+			}
+		}
+	}
 }

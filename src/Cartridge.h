@@ -88,6 +88,7 @@ public:
 
 	bool LoadRom(OPENFILENAME gameDir);
 
-	uint8_t ReadRom(uint16_t add);
+	uint8_t ReadRom(uint32_t add);
+	void WriteRom(uint32_t add, uint8_t value);
 };
 
