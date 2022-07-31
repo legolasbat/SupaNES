@@ -24,38 +24,53 @@ CPURicoh::CPURicoh()
 
 	mem = nullptr;
 
+	InitMap();
+
 }
 
+// Debug variables
 FILE* LOG;
-bool started = true;
+bool started = false;
 int lines = 0;
+bool debug = true;
 
 int CPURicoh::Clock()
 {
 	if (!started) {
-		if (freopen_s(&LOG, "TestMOV.txt", "a", stdout) == NULL) {
+		if (freopen_s(&LOG, "Test.txt", "a", stdout) == NULL) {
 			started = true;
 			WriteMemory(0x0, 0xB5, true);
 		}
 	}
 
+	int opCycles = 0;
 	if (cycles == 0) {
-		opcode = ReadMemory((PB << 16) | PC++, true);
-		//std::cout << std::hex << (int)opcode << std::endl;
 
-		Debug();
-
-		cycles = Execute();
+		if (dmaStart) {
+			DMA();
+			opCycles = 8;
+			cycles = 8;
+		}
+		else {
+			opcode = ReadMemory((PB << 16) | PC++, true);
+			if (debug) {
+				//std::cout << std::hex << (int)opcode << std::endl;
+				Debug();
+			}
+			opCycles = Execute();
+			cycles = opCycles;
+		}
 	}
 	
 	cycles--;
 
-	return 0;
+	return opCycles;
 }
 
 void CPURicoh::Debug() {
 	std::cout << std::setfill('0');
-	std::cout << std::hex << std::setw(6) << (PC - 1) << " ";
+	std::cout << std::hex << std::setw(6) << ((PB << 16) | (PC - 1)) << " ";
+	std::cout << opText[(int)opcode] << " ";
 	std::cout << "A:" << std::setw(4) << A << " ";
 	std::cout << "X:" << std::setw(4) << X << " ";
 	std::cout << "Y:" << std::setw(4) << Y << " ";
@@ -124,13 +139,18 @@ void CPURicoh::Debug() {
 		std::cout << "c";
 	}
 
+	std::cout << std::setfill(' ');
+	std::cout << " V:" << std::dec << std::setw(3) << (int)mem->ppu->GetVCounter() << " ";
+	std::cout << "H:" << std::setw(3) << (int)mem->ppu->GetHCounter() << " ";
+	std::cout << "F:" << std::setw(2) << (int)mem->ppu->GetFrameCounter();
+
 	lines++;
 
-	if (lines >= 7277) {
+	if (lines >= 196969) {
 		std::cout << " ";
 		fclose(stdout);
 	}
-	std::cout << " " << std::endl;
+	std::cout << "" << std::endl;
 }
 
 uint8_t CPURicoh::ReadMemory(uint32_t add, bool isLong) {
@@ -152,12 +172,10 @@ void CPURicoh::WriteMemory(uint32_t add, uint8_t value, bool isLong) {
 uint8_t CPURicoh::Pull() {
 
 	uint8_t value = ReadMemory(++SP, true);
-	//std::cout << "Pulling " << std::hex << (int)value << " at " << std::hex << (int)SP << std::endl;
 	return value;
 }
 
 void CPURicoh::Push(uint8_t value) {
-	//std::cout << "Pushing " << std::hex << (int)value << " at " << std::hex << (int)SP << std::endl;
 	WriteMemory(SP--, value, true);
 }
 
@@ -182,14 +200,11 @@ uint8_t CPURicoh::ReadCPU(uint32_t add) {
 	if (page == 0x42) {
 
 		if (reg == 0x10) {
-			if (NMI == 0x42) {
-				NMI = 0xc2;
-				value = NMI;
+			if (nmi & 0x80) {
+				value = nmi;
+				nmi = 0x02;
 			}
-			else if (NMI == 0xc2) {
-				NMI = 0x42;
-				value = NMI;
-			}
+			std::cout << "NMI read, interrupt?" << std::endl;
 		}
 
 	}
@@ -203,6 +218,120 @@ uint8_t CPURicoh::ReadCPU(uint32_t add) {
 
 void CPURicoh::WriteCPU(uint32_t add, uint8_t value) {
 
+	uint8_t page = (add & 0xFF00) >> 8;
+	uint8_t reg = add & 0xFF;
+
+	if (page == 0x42) {
+		if (reg == 0x0B) {
+			DMAEnable = value;
+			if (value != 0) {
+				dmaStart = true;
+				//std::cout << "DMA" << std::endl;
+			}
+		}
+		else if (reg == 0x10) {
+			nmi = value;
+		}
+	}
+	else if (page == 0x43) {
+		uint8_t dmaChannel = (reg & 0xF0) >> 4;
+		reg &= 0xF;
+
+		if (dmaChannel < 8 && reg < 7)
+			DMARegisters[dmaChannel][reg] = value;
+		else {
+			std::cout << "DMA wrong register" << std::endl;
+		}
+	}
+}
+
+void CPURicoh::NMI() {
+	if (nmi & 0x80) {
+		Push(PB);
+
+		PC++;
+		Push(PC >> 8);
+		Push(PC & 0xFF);
+
+		Push(P);
+
+		P |= IFlag;
+		P &= ~DFlag;
+
+		PB = 0;
+
+		PC = NMIVector;
+
+		cycles += 8;
+	}
+}
+
+void CPURicoh::DMA() {
+	for (uint8_t i = 0; i < 8; i++) {
+		if (DMAEnable & (1 << i)) {
+			uint16_t BAdd = 0x2100 | DMARegisters[i][1];	// B Port Address
+
+			uint8_t DMAControl = DMARegisters[i][0];
+			bool direction = DMAControl & 0x80;				// False: Write to BAdd, True: Read from BAdd
+			uint8_t increment = (DMAControl >> 3) & 0x3;	// 00: Increment, 10: Decrement, x1: Do nothing
+			uint8_t mode = DMAControl & 0x7;
+
+			uint32_t AAdd = DMARegisters[i][2] | (DMARegisters[i][3] << 8) | (DMARegisters[i][4] << 16);
+			uint16_t count = DMARegisters[i][5] | (DMARegisters[i][6] << 8);
+
+			switch (mode) {
+			case 0: {
+				if (!direction) {
+					WriteMemory(BAdd, ReadMemory(AAdd, true), true);
+				}
+				else {
+					WriteMemory(AAdd, ReadMemory(BAdd, true), true);
+				}
+				count--;
+				DMARegisters[i][5] = count & 0xFF;
+				DMARegisters[i][6] = count >> 8;
+				if (count == 0) {
+					dmaStart = false;
+					return;
+				}
+				AAdd += (increment == 0) ? 1 : ((increment == 2) ? -1 : 0);
+
+				break;
+			}
+			case 1: {
+				if (!direction) {
+					WriteMemory(BAdd, ReadMemory(AAdd, true), true);
+					if (--count == 0) {
+						dmaStart = false;
+						return;
+					}
+					WriteMemory(BAdd + 1, ReadMemory(AAdd + 1, true), true);
+
+				}
+				else {
+					WriteMemory(AAdd, ReadMemory(BAdd, true), true);
+					if (--count == 0) {
+						dmaStart = false;
+						return;
+					}
+					WriteMemory(AAdd + 1, ReadMemory(BAdd + 1, true), true);
+				}
+				count--;
+				DMARegisters[i][5] = count & 0xFF;
+				DMARegisters[i][6] = count >> 8;
+				if (count == 0) {
+					dmaStart = false;
+					return;
+				}
+				AAdd += (increment == 0) ? 2 : ((increment == 2) ? -2 : 0);
+
+				break;
+			}
+			}
+
+			break;
+		}
+	}
 }
 
 int CPURicoh::Execute() {
@@ -224,10 +353,7 @@ int CPURicoh::Execute() {
 
 		PB = 0;
 
-		uint16_t add = ReadMemory(0xFFE6, true);
-		add |= ReadMemory(0xFFE7, true) << 8;
-
-		PC = add;
+		PC = BRKVector;
 
 		return emulationMode ? 7 : 8;
 	}
@@ -257,8 +383,7 @@ int CPURicoh::Execute() {
 
 		PB = 0;
 
-		uint16_t add = ReadMemory(0xFFE4, true);
-		add |= ReadMemory(0xFFE5, true) << 8;
+		uint16_t add = COPVector;
 
 		PC = add;
 
@@ -303,9 +428,6 @@ int CPURicoh::Execute() {
 
 		return 5 + c;
 	}
-
-		break;
-
 		// ORA dp
 	case 0x05: {
 
@@ -897,9 +1019,10 @@ int CPURicoh::Execute() {
 
 		uint16_t add = ReadMemory((PB << 16) | PC++, true);
 		add |= ReadMemory((PB << 16) | PC++, true) << 8;
-		PB = ReadMemory((PB << 16) | PC++, true);
 
 		Push(PB);
+		PB = ReadMemory((PB << 16) | PC++, true);
+
 		Push((PC & 0xFF00) >> 8);
 		Push(PC & 0xFF);
 
@@ -1055,9 +1178,6 @@ int CPURicoh::Execute() {
 
 		return (!(P & MFlag) ? 7 : 6) + extraCycles;
 	}
-
-		break;
-
 		// PLP
 	case 0x28:
 
@@ -1567,9 +1687,6 @@ int CPURicoh::Execute() {
 
 		return (!(P & MFlag) ? 5 : 4) + extraCycles;
 	}
-
-		break;
-
 		// ROL addr, X
 	case 0x3E: {
 
@@ -3078,10 +3195,7 @@ int CPURicoh::Execute() {
 		CheckZFlag(result, true, false);
 
 		return (!(P & MFlag) ? 3 : 2);
-	}
-
-		break;
-		
+	}		
 		// TXA
 	case 0x8A:
 
@@ -3270,9 +3384,6 @@ int CPURicoh::Execute() {
 
 		return 4 + c;
 	}
-
-		break;
-
 		// STA dp, X
 	case 0x95: {
 
@@ -3646,10 +3757,10 @@ int CPURicoh::Execute() {
 		// PLB
 	case 0xAB:
 
-		PB = Pull();
+		DB = Pull();
 
-		CheckNFlag(PB, false, false);
-		CheckZFlag(PB, false, false);
+		CheckNFlag(DB, false, false);
+		CheckZFlag(DB, false, false);
 
 		return 4;
 
@@ -3695,8 +3806,7 @@ int CPURicoh::Execute() {
 		}
 		else {
 			uint8_t value = (uint8_t)GetValue(AddMode::Absolute, !(P & XFlag));
-			X &= 0xFF00;
-			X |= value;
+			X = value;
 		}
 
 		CheckNFlag(X, false, true);
@@ -4136,7 +4246,10 @@ int CPURicoh::Execute() {
 		// WAI
 	case 0xCB:
 
-		break;
+		std::cout << "WAI not handled" << std::endl;
+		PC--;
+
+		return 2;
 
 		// CPY addr
 	case 0xCC: {
@@ -4347,7 +4460,9 @@ int CPURicoh::Execute() {
 		// STP
 	case 0xDB:
 
-		break;
+		std::cout << "STOP not handled" << std::endl;
+
+		return 2;
 
 		// JMP [addr]
 	case 0xDC: {
@@ -5734,4 +5849,263 @@ void CPURicoh::SBC(uint16_t value) {
 	CheckNFlag(A, true, false);
 
 	CheckZFlag(A, true, false);
+}
+
+void CPURicoh::InitMap() {
+	opText[0x69] = "adc";
+	opText[0x6D] = "adc";
+	opText[0x6F] = "adc";
+	opText[0x65] = "adc";
+	opText[0x72] = "adc";
+	opText[0x67] = "adc";
+	opText[0x7D] = "adc";
+	opText[0x7F] = "adc";
+	opText[0x79] = "adc";
+	opText[0x75] = "adc";
+	opText[0x61] = "adc";
+	opText[0x71] = "adc";
+	opText[0x77] = "adc";
+	opText[0x63] = "adc";
+	opText[0x73] = "adc";
+	opText[0x29] = "and";
+	opText[0x2D] = "and";
+	opText[0x2F] = "and";
+	opText[0x25] = "and";
+	opText[0x32] = "and";
+	opText[0x27] = "and";
+	opText[0x3D] = "and";
+	opText[0x3F] = "and";
+	opText[0x39] = "and";
+	opText[0x35] = "and";
+	opText[0x21] = "and";
+	opText[0x31] = "and";
+	opText[0x37] = "and";
+	opText[0x23] = "and";
+	opText[0x33] = "and";
+	opText[0x0A] = "asl";
+	opText[0x0E] = "asl";
+	opText[0x06] = "asl";
+	opText[0x1E] = "asl";
+	opText[0x16] = "asl";
+	opText[0x90] = "bcc";
+	opText[0xB0] = "bcs";
+	opText[0xF0] = "beq";
+	opText[0xD0] = "bne";
+	opText[0x30] = "bmi";
+	opText[0x10] = "bpl";
+	opText[0x50] = "bvc";
+	opText[0x70] = "bvs";
+	opText[0x80] = "bra";
+	opText[0x82] = "brl";
+	opText[0x89] = "bit";
+	opText[0x2C] = "bit";
+	opText[0x24] = "bit";
+	opText[0x3C] = "bit";
+	opText[0x34] = "bit";
+	opText[0x00] = "brk";
+	opText[0x02] = "cop";
+	opText[0x18] = "clc";
+	opText[0x58] = "cli";
+	opText[0xD8] = "cld";
+	opText[0xB8] = "clv";
+	opText[0xC9] = "cmp";
+	opText[0xCD] = "cmp";
+	opText[0xCF] = "cmp";
+	opText[0xC5] = "cmp";
+	opText[0xD2] = "cmp";
+	opText[0xC7] = "cmp";
+	opText[0xDD] = "cmp";
+	opText[0xDF] = "cmp";
+	opText[0xD9] = "cmp";
+	opText[0xD5] = "cmp";
+	opText[0xC1] = "cmp";
+	opText[0xD1] = "cmp";
+	opText[0xD7] = "cmp";
+	opText[0xC3] = "cmp";
+	opText[0xD3] = "cmp";
+	opText[0xE0] = "cpx";
+	opText[0xEC] = "cpx";
+	opText[0xE4] = "cpx";
+	opText[0xC0] = "cpy";
+	opText[0xCC] = "cpy";
+	opText[0xC4] = "cpy";
+	opText[0x3A] = "dec";
+	opText[0xCE] = "dec";
+	opText[0xC6] = "dec";
+	opText[0xDE] = "dec";
+	opText[0xD6] = "dec";
+	opText[0xCA] = "dex";
+	opText[0x88] = "dey";
+	opText[0x49] = "eor";
+	opText[0x4D] = "eor";
+	opText[0x4F] = "eor";
+	opText[0x45] = "eor";
+	opText[0x52] = "eor";
+	opText[0x47] = "eor";
+	opText[0x5D] = "eor";
+	opText[0x5F] = "eor";
+	opText[0x59] = "eor";
+	opText[0x55] = "eor";
+	opText[0x41] = "eor";
+	opText[0x51] = "eor";
+	opText[0x57] = "eor";
+	opText[0x43] = "eor";
+	opText[0x53] = "eor";
+	opText[0x1A] = "inc";
+	opText[0xEE] = "inc";
+	opText[0xE6] = "inc";
+	opText[0xFE] = "inc";
+	opText[0xF6] = "inc";
+	opText[0xE8] = "inx";
+	opText[0xC8] = "iny";
+	opText[0x4C] = "jmp";
+	opText[0x6C] = "jmp";
+	opText[0x7C] = "jmp";
+	opText[0x5C] = "jmp";
+	opText[0xDC] = "jml";
+	opText[0x20] = "jsr";
+	opText[0xFC] = "jsr";
+	opText[0x22] = "jsl";
+	opText[0xA9] = "lda";
+	opText[0xAD] = "lda";
+	opText[0xAF] = "lda";
+	opText[0xA5] = "lda";
+	opText[0xB2] = "lda";
+	opText[0xA7] = "lda";
+	opText[0xBD] = "lda";
+	opText[0xBF] = "lda";
+	opText[0xB9] = "lda";
+	opText[0xB5] = "lda";
+	opText[0xA1] = "lda";
+	opText[0xB1] = "lda";
+	opText[0xB7] = "lda";
+	opText[0xA3] = "lda";
+	opText[0xB3] = "lda";
+	opText[0xA2] = "ldx";
+	opText[0xAE] = "ldx";
+	opText[0xA6] = "ldx";
+	opText[0xBE] = "ldx";
+	opText[0xB6] = "ldx";
+	opText[0xA0] = "ldy";
+	opText[0xAC] = "ldy";
+	opText[0xA4] = "ldy";
+	opText[0xBC] = "ldy";
+	opText[0xB4] = "ldy";
+	opText[0x4A] = "lsr";
+	opText[0x4E] = "lsr";
+	opText[0x46] = "lsr";
+	opText[0x5E] = "lsr";
+	opText[0x56] = "lsr";
+	opText[0x54] = "mvn";
+	opText[0x44] = "mvp";
+	opText[0xEA] = "nop";
+	opText[0x09] = "ora";
+	opText[0x0D] = "ora";
+	opText[0x0F] = "ora";
+	opText[0x05] = "ora";
+	opText[0x12] = "ora";
+	opText[0x07] = "ora";
+	opText[0x1D] = "ora";
+	opText[0x1F] = "ora";
+	opText[0x19] = "ora";
+	opText[0x15] = "ora";
+	opText[0x01] = "ora";
+	opText[0x11] = "ora";
+	opText[0x17] = "ora";
+	opText[0x03] = "ora";
+	opText[0x13] = "ora";
+	opText[0xF4] = "pea";
+	opText[0xD4] = "pei";
+	opText[0x62] = "per";
+	opText[0x48] = "pha";
+	opText[0x8B] = "phb";
+	opText[0x0B] = "phd";
+	opText[0x4B] = "phk";
+	opText[0x08] = "php";
+	opText[0xDA] = "phx";
+	opText[0x5A] = "phy";
+	opText[0x68] = "pla";
+	opText[0xAB] = "plb";
+	opText[0x2B] = "pld";
+	opText[0x28] = "plp";
+	opText[0xFA] = "plx";
+	opText[0x7A] = "ply";
+	opText[0xC2] = "rep";
+	opText[0x2A] = "rol";
+	opText[0x2E] = "rol";
+	opText[0x26] = "rol";
+	opText[0x3E] = "rol";
+	opText[0x36] = "rol";
+	opText[0x6A] = "ror";
+	opText[0x6E] = "ror";
+	opText[0x66] = "ror";
+	opText[0x7E] = "ror";
+	opText[0x76] = "ror";
+	opText[0x40] = "rti";
+	opText[0x60] = "rts";
+	opText[0x6B] = "rtl";
+	opText[0xE9] = "sbc";
+	opText[0xED] = "sbc";
+	opText[0xEF] = "sbc";
+	opText[0xE5] = "sbc";
+	opText[0xF2] = "sbc";
+	opText[0xE7] = "sbc";
+	opText[0xFD] = "sbc";
+	opText[0xFF] = "sbc";
+	opText[0xF9] = "sbc";
+	opText[0xF5] = "sbc";
+	opText[0xE1] = "sbc";
+	opText[0xF1] = "sbc";
+	opText[0xF7] = "sbc";
+	opText[0xE3] = "sbc";
+	opText[0xF3] = "sbc";
+	opText[0x38] = "sec";
+	opText[0x78] = "sei";
+	opText[0xF8] = "sed";
+	opText[0xE2] = "sep";
+	opText[0x8D] = "sta";
+	opText[0x8F] = "sta";
+	opText[0x85] = "sta";
+	opText[0x92] = "sta";
+	opText[0x87] = "sta";
+	opText[0x9D] = "sta";
+	opText[0x9F] = "sta";
+	opText[0x99] = "sta";
+	opText[0x95] = "sta";
+	opText[0x81] = "sta";
+	opText[0x91] = "sta";
+	opText[0x97] = "sta";
+	opText[0x83] = "sta";
+	opText[0x93] = "sta";
+	opText[0xDB] = "stp";
+	opText[0x8E] = "stx";
+	opText[0x86] = "stx";
+	opText[0x96] = "stx";
+	opText[0x8C] = "sty";
+	opText[0x84] = "sty";
+	opText[0x94] = "sty";
+	opText[0x9C] = "stz";
+	opText[0x64] = "stz";
+	opText[0x9E] = "stz";
+	opText[0x74] = "stz";
+	opText[0xAA] = "tax";
+	opText[0xA8] = "tay";
+	opText[0x5B] = "tcd";
+	opText[0x1B] = "tcs";
+	opText[0x7B] = "tdc";
+	opText[0x3B] = "tsc";
+	opText[0xBA] = "tsx";
+	opText[0x8A] = "txa";
+	opText[0x9A] = "txs";
+	opText[0x9B] = "txy";
+	opText[0x98] = "tya";
+	opText[0xBB] = "tyx";
+	opText[0x1C] = "trb";
+	opText[0x14] = "trb";
+	opText[0x0C] = "tsb";
+	opText[0x04] = "tsb";
+	opText[0xCB] = "wai";
+	opText[0x42] = "wdm";
+	opText[0xEB] = "xba";
+	opText[0xFB] = "xce";
 }

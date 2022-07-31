@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <iomanip>
 
+#include <map>
+
 #define NFlag 0x80
 #define VFlag 0x40
 #define MFlag 0x20
@@ -44,7 +46,8 @@ private:
 	// Processor Status
 	uint8_t P;
 
-	uint8_t NMI = 0xc2;
+	// NMI
+	uint8_t nmi = 0x02; // 0xc2
 
 	bool emulationMode;
 
@@ -55,13 +58,19 @@ private:
 	int cycles = 0;
 
 	// Native mode vectors
-	uint16_t COPVector;		// 0x00FFE4
-	uint16_t BRKVector;		// 0x00FFE6
-	uint16_t NMIVector;		// 0x00FFEA
-	uint16_t IRQVector;		// 0x00FFEE
+	uint16_t COPVector = 0;		// 0x00FFE4
+	uint16_t BRKVector = 0;		// 0x00FFE6
+	uint16_t NMIVector = 0;		// 0x00FFEA
+	uint16_t IRQVector = 0;		// 0x00FFEE
 
 	// Emulation mode vectors
-	uint16_t ResetVector;	// 0x00FFFC
+	uint16_t ResetVector = 0;	// 0x00FFFC
+
+	// DMA
+	uint8_t DMARegisters[8][7];
+	bool dmaStart = false;
+	uint8_t DMAEnable = 0;
+	void DMA();
 
 	Memory* mem;
 
@@ -128,7 +137,15 @@ public:
 
 	void SetVectors(uint16_t vectors[16]);
 
+	void NMI();
+
 	uint8_t ReadCPU(uint32_t add);
 	void WriteCPU(uint32_t add, uint8_t value);
+
+private:
+
+	std::map<int, const char*> opText;
+
+	void InitMap();
 };
 
