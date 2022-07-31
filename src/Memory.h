@@ -2,12 +2,13 @@
 
 #include "Cartridge.h"
 #include "CPURicoh.h"
+#include "PPU.h"
 
 class Memory
 {
 public:
 
-	Memory(CPURicoh* cpu);
+	Memory(CPURicoh* cpu, PPU* ppu);
 
 	void SetRom(Cartridge* cart) {
 		this->cart = cart;
@@ -17,12 +18,13 @@ public:
 	void WriteMemory(uint32_t add, uint8_t value);
 	void SetVectors(uint16_t vectors[16]);
 
+	CPURicoh* cpu;
+	PPU* ppu;
 private:
 	
 	uint8_t WRAM[0x20000];
 
 	Cartridge* cart;
-	CPURicoh* cpu;
 
 	uint8_t bank = 0;
 	uint8_t page = 0;

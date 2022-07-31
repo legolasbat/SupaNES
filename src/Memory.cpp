@@ -1,8 +1,23 @@
 #include "Memory.h"
+#include <random>
 
-Memory::Memory(CPURicoh* cpu) {
+Memory::Memory(CPURicoh* cpu, PPU* ppu) {
 	this->cpu = cpu;
 	cpu->SetMemory(this);
+
+	this->ppu = ppu;
+	ppu->SetMemory(this);
+
+	const int rangeFrom = 0;
+	const int rangeTo = 0xFF;
+	std::random_device randDev;
+	std::mt19937 generator(randDev());
+	std::uniform_int_distribution<int> distr(rangeFrom, rangeTo);
+
+	for (int i = 0; i < 0x20000; i++)
+	{
+		WRAM[i] = distr(generator);
+	}
 }
 
 uint8_t Memory::ReadMemory(uint32_t add)
@@ -24,17 +39,19 @@ uint8_t Memory::ReadMemory(uint32_t add)
 	else {
 		value = ReadMemoryQ4(add);
 	}
-	
+	//std::cout << "Reading " << std::hex << (int)add << ": " << std::hex << (int)value << std::endl;
 	return value;
 }
 
 void Memory::WriteMemory(uint32_t add, uint8_t value)
 {
+	//std::cout << "Writting " << std::hex << (int)add << ": " << std::hex << (int)value << std::endl;
+
 	bank = (add & 0x00FF0000) >> 16;
 	page = (add & 0x0000FF00) >> 8;
 
 	if (add == 0x4210) {
-		std::cout << (int)value << std::endl;
+		//std::cout << (int)value << std::endl;
 	}
 
 	if (bank < 0x40) {
@@ -65,7 +82,14 @@ uint8_t Memory::ReadMemoryQ1(uint32_t add)
 		value = WRAM[add];
 	}
 	else if (page == 0x21) {
-		std::cout << "Reading PPU register" << std::endl;
+		// APU
+		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
+			std::cout << "Reading APU" << std::endl;
+		}
+		// PPU
+		else {
+			value = ppu->ReadPPU(add);
+		}
 	}
 	else if (page == 0x40) {
 		std::cout << "Reading Joypad register" << std::endl;
@@ -103,7 +127,14 @@ uint8_t Memory::ReadMemoryQ3(uint32_t add)
 		value = WRAM[0x1FFF & add];
 	}
 	else if (page == 0x21) {
-		std::cout << "Reading PPU register" << std::endl;
+		// APU
+		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
+			std::cout << "Reading APU" << std::endl;
+		}
+		// PPU
+		else {
+			value = ppu->ReadPPU(add);
+		}
 	}
 	else if (page == 0x40) {
 		std::cout << "Reading Joypad register" << std::endl;
@@ -134,10 +165,16 @@ void Memory::WriteMemoryQ1(uint32_t add, uint8_t value)
 		WRAM[add] = value;
 	}
 	else if (page == 0x21) {
-		std::cout << "Writting PPU register" << std::endl;
+		// APU
+		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
+			//std::cout << "Writting APU" << std::endl;
+		}
+		else {
+			ppu->WritePPU(add, value);
+		}
 	}
 	else if (page == 0x40) {
-		std::cout << "Writting Joypad register" << std::endl;
+		//std::cout << "Writting Joypad register" << std::endl;
 	}
 	else if (page == 0x42 || page == 0x43) {
 		cpu->WriteCPU(add, value);
@@ -150,6 +187,12 @@ void Memory::WriteMemoryQ2(uint32_t add, uint8_t value)
 	if (bank == 0x7E || bank == 0x7F) {
 		WRAM[add - 0x7E0000] = value;
 	}
+	else {
+		// SRAM
+		if (page < 0x80) {
+			cart->WriteRom(add, value);
+		}
+	}
 }
 
 void Memory::WriteMemoryQ3(uint32_t add, uint8_t value)
@@ -159,10 +202,16 @@ void Memory::WriteMemoryQ3(uint32_t add, uint8_t value)
 		WRAM[0x1FFF & add] = value;
 	}
 	else if (page == 0x21) {
-		std::cout << "Writting PPU register" << std::endl;
+		// APU
+		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
+			//std::cout << "Writting APU" << std::endl;
+		}
+		else {
+			ppu->WritePPU(add, value);
+		}
 	}
 	else if (page == 0x40) {
-		std::cout << "Writting Joypad register" << std::endl;
+		//std::cout << "Writting Joypad register" << std::endl;
 	}
 	else if (page == 0x42 || page == 0x43) {
 		cpu->WriteCPU(add, value);
@@ -171,4 +220,8 @@ void Memory::WriteMemoryQ3(uint32_t add, uint8_t value)
 
 void Memory::WriteMemoryQ4(uint32_t add, uint8_t value)
 {
+	// SRAM
+	if (bank >= 0xF0 && page < 0x80) {
+		cart->WriteRom(add, value);
+	}
 }
