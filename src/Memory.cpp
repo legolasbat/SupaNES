@@ -1,12 +1,15 @@
 #include "Memory.h"
 #include <random>
 
-Memory::Memory(CPURicoh* cpu, PPU* ppu) {
+Memory::Memory(CPURicoh* cpu, PPU* ppu, APU* apu) {
 	this->cpu = cpu;
 	cpu->SetMemory(this);
 
 	this->ppu = ppu;
 	ppu->SetMemory(this);
+
+	this->apu = apu;
+	apu->SetMemory(this);
 
 	const int rangeFrom = 0;
 	const int rangeTo = 0xFF;
@@ -83,8 +86,9 @@ uint8_t Memory::ReadMemoryQ1(uint32_t add)
 	}
 	else if (page == 0x21) {
 		// APU
-		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
-			std::cout << "Reading APU" << std::endl;
+		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
+			value = apu->ReadAPUPort(add);
+			//std::cout << "Reading APU: " << std::hex << (int)value << " Q1" << std::endl;
 		}
 		// PPU
 		else {
@@ -128,8 +132,9 @@ uint8_t Memory::ReadMemoryQ3(uint32_t add)
 	}
 	else if (page == 0x21) {
 		// APU
-		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
-			std::cout << "Reading APU" << std::endl;
+		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
+			value = apu->ReadAPUPort(add);
+			//std::cout << "Reading APU: " << std::hex << (int)value << " Q3" << std::endl;
 		}
 		// PPU
 		else {
@@ -166,8 +171,9 @@ void Memory::WriteMemoryQ1(uint32_t add, uint8_t value)
 	}
 	else if (page == 0x21) {
 		// APU
-		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
-			//std::cout << "Writting APU" << std::endl;
+		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
+			apu->WriteCPUPort(add, value);
+			//std::cout << "Writting APU in " << std::hex << (int)add << ": " << (int)value << " Q1" << std::endl;
 		}
 		else {
 			ppu->WritePPU(add, value);
@@ -203,8 +209,9 @@ void Memory::WriteMemoryQ3(uint32_t add, uint8_t value)
 	}
 	else if (page == 0x21) {
 		// APU
-		if ((add & 0xFF) >= 0x40 || (add & 0xFF) <= 0x43) {
-			//std::cout << "Writting APU" << std::endl;
+		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
+			apu->WriteCPUPort(add, value);
+			//std::cout << "Writting APU in " << std::hex << (int)add << ": " << (int)value << " Q3" << std::endl;
 		}
 		else {
 			ppu->WritePPU(add, value);

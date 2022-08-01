@@ -39,7 +39,7 @@ int CPURicoh::Clock()
 	if (!started) {
 		if (freopen_s(&LOG, "Test.txt", "a", stdout) == NULL) {
 			started = true;
-			WriteMemory(0x0, 0xB5, true);
+			WriteMemory(0x0, 0xB5, true); // ?
 		}
 	}
 
@@ -54,7 +54,6 @@ int CPURicoh::Clock()
 		else {
 			opcode = ReadMemory((PB << 16) | PC++, true);
 			if (debug) {
-				//std::cout << std::hex << (int)opcode << std::endl;
 				Debug();
 			}
 			opCycles = Execute();
@@ -70,7 +69,7 @@ int CPURicoh::Clock()
 void CPURicoh::Debug() {
 	std::cout << std::setfill('0');
 	std::cout << std::hex << std::setw(6) << ((PB << 16) | (PC - 1)) << " ";
-	std::cout << opText[(int)opcode] << " ";
+	//std::cout << opText[(int)opcode] << " ";
 	std::cout << "A:" << std::setw(4) << A << " ";
 	std::cout << "X:" << std::setw(4) << X << " ";
 	std::cout << "Y:" << std::setw(4) << Y << " ";
@@ -139,18 +138,18 @@ void CPURicoh::Debug() {
 		std::cout << "c";
 	}
 
-	std::cout << std::setfill(' ');
-	std::cout << " V:" << std::dec << std::setw(3) << (int)mem->ppu->GetVCounter() << " ";
-	std::cout << "H:" << std::setw(3) << (int)mem->ppu->GetHCounter() << " ";
-	std::cout << "F:" << std::setw(2) << (int)mem->ppu->GetFrameCounter();
+	//std::cout << std::setfill(' ');
+	//std::cout << " V:" << std::dec << std::setw(3) << (int)mem->ppu->GetVCounter() << " ";
+	//std::cout << "H:" << std::setw(3) << (int)mem->ppu->GetHCounter() << " ";
+	//std::cout << "F:" << std::setw(2) << (int)mem->ppu->GetFrameCounter();
 
 	lines++;
 
-	if (lines >= 196969) {
+	if (lines >= 22845) {
 		std::cout << " ";
 		fclose(stdout);
 	}
-	std::cout << "" << std::endl;
+	std::cout << " " << std::endl;
 }
 
 uint8_t CPURicoh::ReadMemory(uint32_t add, bool isLong) {
@@ -200,11 +199,20 @@ uint8_t CPURicoh::ReadCPU(uint32_t add) {
 	if (page == 0x42) {
 
 		if (reg == 0x10) {
-			if (nmi & 0x80) {
+
+			// For Tests (?)
+			if (nmi == 0x42) {
+				nmi = 0xc2;
 				value = nmi;
-				nmi = 0x02;
 			}
-			std::cout << "NMI read, interrupt?" << std::endl;
+			else if (nmi == 0xc2) {
+				nmi = 0x42;
+				value = nmi;
+			}
+
+			//value = nmi & 0x80;
+			//nmi = 0x02;
+			//std::cout << "NMI read, interrupt?" << std::endl;
 		}
 
 	}
@@ -222,7 +230,10 @@ void CPURicoh::WriteCPU(uint32_t add, uint8_t value) {
 	uint8_t reg = add & 0xFF;
 
 	if (page == 0x42) {
-		if (reg == 0x0B) {
+		if (reg == 0x00) {
+			nmitimen = value;
+		}
+		else if (reg == 0x0B) {
 			DMAEnable = value;
 			if (value != 0) {
 				dmaStart = true;
@@ -246,24 +257,26 @@ void CPURicoh::WriteCPU(uint32_t add, uint8_t value) {
 }
 
 void CPURicoh::NMI() {
-	if (nmi & 0x80) {
-		Push(PB);
+	nmi |= 0x80;
 
-		PC++;
-		Push(PC >> 8);
-		Push(PC & 0xFF);
-
-		Push(P);
-
-		P |= IFlag;
-		P &= ~DFlag;
-
-		PB = 0;
-
-		PC = NMIVector;
-
-		cycles += 8;
-	}
+	//if (nmi & 0x80) {
+	//	Push(PB);
+	//
+	//	PC++;
+	//	Push(PC >> 8);
+	//	Push(PC & 0xFF);
+	//
+	//	Push(P);
+	//
+	//	P |= IFlag;
+	//	P &= ~DFlag;
+	//
+	//	PB = 0;
+	//
+	//	PC = NMIVector;
+	//
+	//	cycles += 8;
+	//}
 }
 
 void CPURicoh::DMA() {

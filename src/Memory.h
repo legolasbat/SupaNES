@@ -3,12 +3,13 @@
 #include "Cartridge.h"
 #include "CPURicoh.h"
 #include "PPU.h"
+#include "APU.h"
 
 class Memory
 {
 public:
 
-	Memory(CPURicoh* cpu, PPU* ppu);
+	Memory(CPURicoh* cpu, PPU* ppu, APU* apu);
 
 	void SetRom(Cartridge* cart) {
 		this->cart = cart;
@@ -20,6 +21,7 @@ public:
 
 	CPURicoh* cpu;
 	PPU* ppu;
+	APU* apu;
 private:
 	
 	uint8_t WRAM[0x20000];

@@ -28,7 +28,7 @@ private:
 	// Accumulator
 	uint16_t A;
 
-	//Index
+	// Index
 	uint16_t X, Y;
 
 	// Stack Pointer
@@ -46,8 +46,11 @@ private:
 	// Processor Status
 	uint8_t P;
 
+	// Interrupt Flags
+	uint8_t nmitimen = 0;
+
 	// NMI
-	uint8_t nmi = 0x02; // 0xc2
+	uint8_t nmi = 0x42; // 0xc2
 
 	bool emulationMode;
 
