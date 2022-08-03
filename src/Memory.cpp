@@ -19,7 +19,8 @@ Memory::Memory(CPURicoh* cpu, PPU* ppu, APU* apu) {
 
 	for (int i = 0; i < 0x20000; i++)
 	{
-		WRAM[i] = distr(generator);
+		//WRAM[i] = distr(generator);
+		WRAM[i] = 0;
 	}
 }
 
@@ -85,14 +86,19 @@ uint8_t Memory::ReadMemoryQ1(uint32_t add)
 		value = WRAM[add];
 	}
 	else if (page == 0x21) {
+		// PPU
+		if ((add & 0xFF) <= 0x3F) {
+			value = ppu->ReadPPU(add);
+		}
 		// APU
-		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
+		else if ((add & 0xFF) <= 0x43) {
 			value = apu->ReadAPUPort(add);
 			//std::cout << "Reading APU: " << std::hex << (int)value << " Q1" << std::endl;
 		}
-		// PPU
-		else {
-			value = ppu->ReadPPU(add);
+		// WRAM
+		else if ((add & 0xFF) == 0x80) {	// Write/Read
+			value = WRAM[WRAMAdd];
+			WRAMAdd++;
 		}
 	}
 	else if (page == 0x40) {
@@ -131,14 +137,19 @@ uint8_t Memory::ReadMemoryQ3(uint32_t add)
 		value = WRAM[0x1FFF & add];
 	}
 	else if (page == 0x21) {
-		// APU
-		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
-			value = apu->ReadAPUPort(add);
-			//std::cout << "Reading APU: " << std::hex << (int)value << " Q3" << std::endl;
-		}
 		// PPU
-		else {
+		if ((add & 0xFF) <= 0x3F) {
 			value = ppu->ReadPPU(add);
+		}
+		// APU
+		else if ((add & 0xFF) <= 0x43) {
+			value = apu->ReadAPUPort(add);
+			//std::cout << "Reading APU: " << std::hex << (int)value << " Q1" << std::endl;
+		}
+		// WRAM
+		else if ((add & 0xFF) == 0x80) {	// Write/Read
+			value = WRAM[WRAMAdd];
+			WRAMAdd++;
 		}
 	}
 	else if (page == 0x40) {
@@ -170,13 +181,31 @@ void Memory::WriteMemoryQ1(uint32_t add, uint8_t value)
 		WRAM[add] = value;
 	}
 	else if (page == 0x21) {
+		// PPU
+		if ((add & 0xFF) <= 0x3F) {
+			ppu->WritePPU(add, value);
+		}
 		// APU
-		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
+		else if ((add & 0xFF) <= 0x43) {
 			apu->WriteCPUPort(add, value);
 			//std::cout << "Writting APU in " << std::hex << (int)add << ": " << (int)value << " Q1" << std::endl;
 		}
-		else {
-			ppu->WritePPU(add, value);
+		// WRAM
+		else if ((add & 0xFF) == 0x80) {	// Write/Read
+			WRAM[WRAMAdd] = value;
+			WRAMAdd++;
+		}
+		else if ((add & 0xFF) == 0x81) {	// Low Address
+			WRAMAdd &= 0x1FF00;
+			WRAMAdd |= value;
+		}
+		else if ((add & 0xFF) == 0x82) {	// Page Address
+			WRAMAdd &= 0x100FF;
+			WRAMAdd |= value << 8;
+		}
+		else if ((add & 0xFF) == 0x83) {	// Bank Address
+			WRAMAdd &= 0xFFFF;
+			WRAMAdd |= value << 16;
 		}
 	}
 	else if (page == 0x40) {
@@ -208,13 +237,31 @@ void Memory::WriteMemoryQ3(uint32_t add, uint8_t value)
 		WRAM[0x1FFF & add] = value;
 	}
 	else if (page == 0x21) {
-		// APU
-		if ((add & 0xFF) >= 0x40 && (add & 0xFF) <= 0x43) {
-			apu->WriteCPUPort(add, value);
-			//std::cout << "Writting APU in " << std::hex << (int)add << ": " << (int)value << " Q3" << std::endl;
-		}
-		else {
+		// PPU
+		if ((add & 0xFF) <= 0x3F) {
 			ppu->WritePPU(add, value);
+		}
+		// APU
+		else if ((add & 0xFF) <= 0x43) {
+			apu->WriteCPUPort(add, value);
+			//std::cout << "Writting APU in " << std::hex << (int)add << ": " << (int)value << " Q1" << std::endl;
+		}
+		// WRAM
+		else if ((add & 0xFF) == 0x80) {	// Write/Read
+			WRAM[WRAMAdd] = value;
+			WRAMAdd++;
+		}
+		else if ((add & 0xFF) == 0x81) {	// Low Address
+			WRAMAdd &= 0x1FF00;
+			WRAMAdd |= value;
+		}
+		else if ((add & 0xFF) == 0x82) {	// Page Address
+			WRAMAdd &= 0x100FF;
+			WRAMAdd |= value << 8;
+		}
+		else if ((add & 0xFF) == 0x83) {	// Bank Address
+			WRAMAdd &= 0xFFFF;
+			WRAMAdd |= value << 16;
 		}
 	}
 	else if (page == 0x40) {

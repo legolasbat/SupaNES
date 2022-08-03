@@ -24,6 +24,7 @@ public:
 	APU* apu;
 private:
 	
+	uint32_t WRAMAdd = 0;
 	uint8_t WRAM[0x20000];
 
 	Cartridge* cart;

@@ -4,20 +4,27 @@
 
 void PPU::Clock(int cycles)
 {
-	HCounter += cycles;
-	if (HCounter >= 339) {
-		HCounter -= 339;
-		VCounter++;
-		if (VCounter == 225) {
-			mem->cpu->NMI();
-			frameCompleted = true;
+	for (int i = 0; i < cycles; i++)
+	{
+		if (HCounter < width && VCounter < height) {
+			SetPixel(HCounter, VCounter);
 		}
-		if (VCounter == 262) {
-			frameCounter++;
-			if (frameCounter >= 60) {
-				frameCounter = 0;
+		HCounter++;
+
+		if (HCounter >= 339) {
+			HCounter -= 339;
+			VCounter++;
+			if (VCounter == 225) {
+				mem->cpu->NMI();
+				frameCompleted = true;
 			}
-			VCounter = 0;
+			if (VCounter == 262) {
+				frameCounter++;
+				if (frameCounter >= 60) {
+					frameCounter = 0;
+				}
+				VCounter = 0;
+			}
 		}
 	}
 }
@@ -35,10 +42,15 @@ uint8_t PPU::ReadPPU(uint32_t add)
 		// VRAM
 		if (reg == 0x39) {	// Low Byte Read
 			value = VRAM[VRAMAdd] & 0xFF;
+			if ((VMain & 0x80) == 0) {
+				VRAMAdd++;
+			}
 		}
 		else if (reg == 0x3A) {	// High Byte Read
 			value = VRAM[VRAMAdd] >> 8;
-			VRAMAdd++;
+			if ((VMain & 0x80) == 0x80) {
+				VRAMAdd++;
+			}
 		}
 		// OAM
 		else if (reg == 0x38) {	// Read Twice L/H
@@ -64,19 +76,6 @@ uint8_t PPU::ReadPPU(uint32_t add)
 				CGAddSet = true;
 			}
 		}
-		// WRAM
-		else if (reg == 0x80) {	// Write/Read
-
-		}
-		else if (reg == 0x81) {	// Low Address
-
-		}
-		else if (reg == 0x82) {	// Page Address
-
-		}
-		else if (reg == 0x83) {	// Bank Address
-
-		}
 	}
 
 	return value;
@@ -89,7 +88,11 @@ void PPU::WritePPU(uint32_t add, uint8_t value)
 	uint8_t reg = add & 0xFF;
 
 	if (page == 0x21) {
-		if (reg == 0x07) {
+		if (reg == 0x05) {
+			BGMode = value;
+			std::cout << std::hex << "Mode: " << (int)BGMode << std::endl;
+		}
+		else if (reg == 0x07) {
 			BGTileAdd1 = value;
 		}
 		else if (reg == 0x08) {
@@ -108,6 +111,9 @@ void PPU::WritePPU(uint32_t add, uint8_t value)
 			BGAdd3_4 = value;
 		}
 		// VRAM
+		else if (reg == 0x15) {	// Video Port Control
+			VMain = value;
+		}
 		else if (reg == 0x16) {	// Low Byte Address
 			VRAMAdd &= 0xFF00;
 			VRAMAdd |= value;
@@ -118,10 +124,15 @@ void PPU::WritePPU(uint32_t add, uint8_t value)
 		}
 		else if (reg == 0x18) {	// Low Byte Write
 			VRAM[VRAMAdd] = value;
+			if ((VMain & 0x80) == 0) {
+				VRAMAdd++;
+			}
 		}
 		else if (reg == 0x19) {	// High Byte Write
 			VRAM[VRAMAdd] |= value << 8;
-			VRAMAdd++;
+			if ((VMain & 0x80) == 0x80) {
+				VRAMAdd++;
+			}
 		}
 		// OAM
 		else if (reg == 0x02) {	// Low Byte Address
@@ -160,21 +171,205 @@ void PPU::WritePPU(uint32_t add, uint8_t value)
 				CGAddSet = true;
 			}
 		}
-		// WRAM
-		else if (reg == 0x80) {	// Write/Read
-
-		}
-		else if (reg == 0x81) {	// Low Address
-
-		}
-		else if (reg == 0x82) {	// Page Address
-
-		}
-		else if (reg == 0x83) {	// Bank Address
-
+		else if (reg == 0x2C) {
+			TM = value;
 		}
 	}
+}
 
+void PPU::SetPixel(int X, int Y)
+{
+	SetBGDrop(X, Y);
+	// Render from back to front
+	if (BG4Active && (TM & 0x8)) {
+		SetBGPixel(X, Y, BGTileAdd4, 4, GetColorBPPForBG(4));
+	}
+	if (BG3Active && (TM & 0x4)) {
+		SetBGPixel(X, Y, BGTileAdd3, 3, GetColorBPPForBG(3));
+	}
+	if (BG2Active && (TM & 0x2)) {
+		SetBGPixel(X, Y, BGTileAdd2, 2, GetColorBPPForBG(2));
+	}
+	if (BG1Active && (TM & 0x1)) {
+		SetBGPixel(X, Y, BGTileAdd1, 1, GetColorBPPForBG(1));
+	}
+}
+
+void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp)
+{
+	uint16_t tile = ((BGAdd & 0x7E) << 8) + ((Y / 8) << 5) + (X / 8); // scroll +(SY ? ((Y & 0x20) << (SX ? 6 : 5)) : 0) + (SX ? ((X & 0x20) << 5) : 0);
+	uint16_t tileWord = VRAM[tile];
+
+	uint16_t tileId = tileWord & 0x3ff;			//  mask bits that are for index
+	uint8_t BGPaletteN = (tileWord >> 10) & 0b111;
+	uint8_t BGPriority = (tileWord >> 13) & 1;	//  0 - lower, 1 - higher
+	uint8_t BGFlipX = (tileWord >> 14) & 1;		//  0 - normal, 1 - mirror horizontally
+	uint8_t BGFlipY = (tileWord >> 15) & 1;		//  0 - normal, 1 - mirror vertically
+
+	uint8_t i = Y % 8;
+	uint8_t j = X % 8;
+	uint8_t VShift = i + (-i + 7 - i) * BGFlipY;
+	uint8_t HShift = (7 - j) + (2 * j - 7) * BGFlipX;
+	uint16_t tileAddress = 0;
+
+	uint16_t tileOffset = 0;
+	if (BGIndex == 1) {
+		tileOffset = (BGAdd1_2 & 0xF) << 12;
+	}
+	else if (BGIndex == 2) {
+		tileOffset = (BGAdd1_2 & 0xF0) << 8;
+	}
+	else if (BGIndex == 3) {
+		tileOffset = (BGAdd3_4 & 0xF) << 12;
+	}
+	else if (BGIndex == 4) {
+		tileOffset = (BGAdd3_4 & 0xF0) << 8;
+	}
+
+	uint16_t pal = 0;
+	
+	if (bpp == BPP::BPP2) {
+		tileAddress = tileOffset + tileId * 0x8 + VShift;
+		pal = GetColor2BPP(tileAddress, BGPaletteN, HShift);
+	}
+	else if (bpp == BPP::BPP4) {
+		tileAddress = tileOffset + tileId * 0x10 + VShift;
+		pal = GetColor4BPP(tileAddress, BGPaletteN, HShift);
+	}
+	else if (bpp == BPP::BPP8) {
+		tileAddress = tileOffset + tileId * 0x20 + VShift;
+		pal = GetColor8BPP(tileAddress, BGPaletteN, HShift);
+	}
+
+	pixels[(Y * width) + X] = pal;
+
+	if (started)
+		if (freopen_s(&LOG, "Test.txt", "a", stdout) == NULL) {
+			started = false;
+			debug = true;
+		}
+
+	if (debug) {
+		std::cout << std::setfill('0');
+		std::cout << "Pixel: " << std::dec << X << ", " << Y << std::endl;
+		std::cout << "Position: " << std::dec << X / 8 << ", " << Y / 8 << std::endl;
+		std::cout << "Address: " << std::hex << std::setw(4) << (int)(tile * 2) << std::endl;
+		std::cout << "Value: " << std::setw(4) << (int)tileWord << std::endl;
+		std::cout << "Character: " << std::dec << (int)tileId << std::endl;
+		std::cout << "Char Address: " << std::hex << std::setw(4) << (int)(tileAddress * 2) << std::endl;
+		std::cout << "Palete: " << std::dec << (int)BGPaletteN << std::endl;
+		std::cout << "Priority: " << std::dec << (int)BGPriority << std::endl;
+		std::cout << "hFlip: " << std::dec << (int)BGFlipX << std::endl;
+		std::cout << "vFlip: " << std::dec << (int)BGFlipY << std::endl;
+		//std::cout << std::endl;
+	}
+}
+
+void PPU::SetBGDrop(int X, int Y)
+{
+	pixels[(Y * width) + X] = CGRAM[0];
+}
+
+uint16_t PPU::GetColor(uint8_t id, uint8_t tilePal)
+{
+	if (id == 0) {
+		return CGRAM[0];
+	}
+	return CGRAM[id + tilePal * 4];
+}
+
+uint16_t PPU::GetColor2BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift)
+{
+	uint8_t BGLo = VRAM[charAdd] & 0xff;
+	uint8_t BGHi = VRAM[charAdd] >> 8;
+	uint8_t palIndex = ((BGLo >> HShift) & 1) + (2 * ((BGHi >> HShift) & 1));
+
+	if (palIndex == 0) {
+		return CGRAM[0];
+	}
+	return CGRAM[palIndex + pal * 4];
+}
+
+uint16_t PPU::GetColor4BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift)
+{
+	uint8_t BGLo1 = VRAM[charAdd] & 0xff;
+	uint8_t BGLo2 = VRAM[charAdd] >> 8;
+	uint8_t BGHi1 = VRAM[charAdd + 8] & 0xff;
+	uint8_t BGHi2 = VRAM[charAdd + 8] >> 8;
+	uint8_t palIndex = ((BGLo1 >> HShift) & 1) + (2 * ((BGLo2 >> HShift) & 1)) + (4 * ((BGHi1 >> HShift) & 1)) + (8 * ((BGHi2 >> HShift) & 1));
+
+	if (palIndex == 0) {
+		return CGRAM[0];
+	}
+	return CGRAM[palIndex + pal * 16];
+}
+
+uint16_t PPU::GetColor8BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift)
+{
+	uint8_t BG1 = VRAM[charAdd] & 0xff;
+	uint8_t BG2 = VRAM[charAdd] >> 8;
+	uint8_t BG3 = VRAM[charAdd + 8] & 0xff;
+	uint8_t BG4 = VRAM[charAdd + 8] >> 8;
+	uint8_t BG5 = VRAM[charAdd + 16] & 0xff;
+	uint8_t BG6 = VRAM[charAdd + 16] >> 8;
+	uint8_t BG7 = VRAM[charAdd + 24] & 0xff;
+	uint8_t BG8 = VRAM[charAdd + 24] >> 8;
+	uint8_t palIndex = ((BG1 >> HShift) & 1) + (2 * ((BG2 >> HShift) & 1)) + (4 * ((BG3 >> HShift) & 1)) + (8 * ((BG4 >> HShift) & 1)) +
+		(16 * ((BG5 >> HShift) & 1)) + (32 * ((BG6 >> HShift) & 1)) + (64 * ((BG7 >> HShift) & 1)) + (128 * ((BG8 >> HShift) & 1));
+
+	if (debug) {
+		std::cout << "palIndex: " << std::dec << (int)palIndex << std::endl;
+		std::cout << std::endl;
+	}
+	
+	if (palIndex == 0) {
+		return CGRAM[0];
+	}
+	return CGRAM[palIndex + pal * 0];
+}
+
+uint8_t PPU::GetMode()
+{
+	return BGMode & 0x7;
+}
+
+PPU::BPP PPU::GetColorBPPForBG(int BGIndex)
+{
+	uint8_t mode = GetMode();
+
+	if (mode == 0) {
+		return BPP::BPP2;
+	}
+	if (mode == 1) {
+		if (BGIndex == 3) {
+			return BPP::BPP2;
+		}
+		return BPP::BPP4;
+	}
+	if (mode == 2) {
+		return BPP::BPP4;
+	}
+	if (mode == 3) {
+		if (BGIndex == 1) {
+			return BPP::BPP8;
+		}
+		return BPP::BPP4;
+	}
+	return BPP();
+}
+
+bool PPU::GetSizeBG(uint8_t BGNumber)
+{
+	if (BGMode & (0x08 << BGNumber)) {
+		return true;
+	}
+	return false;
+}
+
+uint16_t* PPU::GetFrame()
+{
+	frameCompleted = false;
+	return pixels;
 }
 
 int PPU::GetVCounter() {
@@ -187,4 +382,24 @@ int PPU::GetHCounter() {
 
 int PPU::GetFrameCounter() {
 	return frameCounter;
+}
+
+void PPU::ToggleBG1(bool state)
+{
+	BG1Active = state;
+}
+
+void PPU::ToggleBG2(bool state)
+{
+	BG2Active = state;
+}
+
+void PPU::ToggleBG3(bool state)
+{
+	BG3Active = state;
+}
+
+void PPU::ToggleBG4(bool state)
+{
+	BG4Active = state;
 }

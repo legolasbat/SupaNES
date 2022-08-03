@@ -72,6 +72,7 @@ private:
 	// DMA
 	uint8_t DMARegisters[8][7];
 	bool dmaStart = false;
+	bool dmaStarting = false;
 	uint8_t DMAEnable = 0;
 	void DMA();
 
@@ -150,5 +151,13 @@ private:
 	std::map<int, const char*> opText;
 
 	void InitMap();
+
+	// Debug variables
+	FILE* LOG;
+	bool started = true;
+	int lines = 0;
+	bool debug = false;
+
+	bool isWaiting = false;
 };
 

@@ -183,7 +183,7 @@ uint8_t Cartridge::ReadRom(uint32_t add)
 		else if (page < 0x80) {
 			// SRAM 2Q
 			if (bank >= 0x40 && bank < 0x7E) {
-				std::cout << "SRAM not handled" << std::endl;
+				std::cout << "SRAM not handled (Reading 2Q)" << std::endl;
 			}
 			// ROM bottom half 4Q
 			else if (bank >= 0xC0 && bank < 0xF0) {
@@ -191,7 +191,7 @@ uint8_t Cartridge::ReadRom(uint32_t add)
 			}
 			// SRAM 4Q
 			else if (bank >= 0xF0) {
-				std::cout << "SRAM not handled" << std::endl;
+				std::cout << "SRAM not handled (Reading 4Q)" << std::endl;
 			}
 		}
 	}
@@ -213,11 +213,11 @@ void Cartridge::WriteRom(uint32_t add, uint8_t value) {
 		if (page < 0x80) {
 			// SRAM 2Q
 			if (bank >= 0x40 && bank < 0x7E) {
-				std::cout << "SRAM not handled" << std::endl;
+				std::cout << "SRAM not handled (Writting 2Q)" << std::endl;
 			}
 			// SRAM 4Q
 			else if (bank >= 0xF0) {
-				std::cout << "SRAM not handled" << std::endl;
+				std::cout << "SRAM not handled (Writting 4Q)" << std::endl;
 			}
 		}
 	}

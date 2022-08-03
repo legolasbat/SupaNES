@@ -28,12 +28,6 @@ CPURicoh::CPURicoh()
 
 }
 
-// Debug variables
-FILE* LOG;
-bool started = false;
-int lines = 0;
-bool debug = true;
-
 int CPURicoh::Clock()
 {
 	if (!started) {
@@ -53,9 +47,15 @@ int CPURicoh::Clock()
 		}
 		else {
 			opcode = ReadMemory((PB << 16) | PC++, true);
-			if (debug) {
+			if (debug && !isWaiting) {
 				Debug();
 			}
+
+			if (dmaStarting) {
+				dmaStart = true;
+				dmaStarting = false;
+			}
+
 			opCycles = Execute();
 			cycles = opCycles;
 		}
@@ -69,7 +69,7 @@ int CPURicoh::Clock()
 void CPURicoh::Debug() {
 	std::cout << std::setfill('0');
 	std::cout << std::hex << std::setw(6) << ((PB << 16) | (PC - 1)) << " ";
-	//std::cout << opText[(int)opcode] << " ";
+	std::cout << opText[(int)opcode] << " ";
 	std::cout << "A:" << std::setw(4) << A << " ";
 	std::cout << "X:" << std::setw(4) << X << " ";
 	std::cout << "Y:" << std::setw(4) << Y << " ";
@@ -138,14 +138,14 @@ void CPURicoh::Debug() {
 		std::cout << "c";
 	}
 
-	//std::cout << std::setfill(' ');
-	//std::cout << " V:" << std::dec << std::setw(3) << (int)mem->ppu->GetVCounter() << " ";
-	//std::cout << "H:" << std::setw(3) << (int)mem->ppu->GetHCounter() << " ";
-	//std::cout << "F:" << std::setw(2) << (int)mem->ppu->GetFrameCounter();
+	std::cout << std::setfill(' ');
+	std::cout << " V:" << std::dec << std::setw(3) << (int)mem->ppu->GetVCounter() << " ";
+	std::cout << "H:" << std::setw(3) << (int)mem->ppu->GetHCounter() << " ";
+	std::cout << "F:" << std::setw(2) << (int)mem->ppu->GetFrameCounter();
 
 	lines++;
 
-	if (lines >= 22845) {
+	if (lines >= 1053) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -236,7 +236,7 @@ void CPURicoh::WriteCPU(uint32_t add, uint8_t value) {
 		else if (reg == 0x0B) {
 			DMAEnable = value;
 			if (value != 0) {
-				dmaStart = true;
+				dmaStarting = true;
 				//std::cout << "DMA" << std::endl;
 			}
 		}
@@ -259,24 +259,28 @@ void CPURicoh::WriteCPU(uint32_t add, uint8_t value) {
 void CPURicoh::NMI() {
 	nmi |= 0x80;
 
-	//if (nmi & 0x80) {
-	//	Push(PB);
-	//
-	//	PC++;
-	//	Push(PC >> 8);
-	//	Push(PC & 0xFF);
-	//
-	//	Push(P);
-	//
-	//	P |= IFlag;
-	//	P &= ~DFlag;
-	//
-	//	PB = 0;
-	//
-	//	PC = NMIVector;
-	//
-	//	cycles += 8;
-	//}
+	if (nmitimen & 0x80) {
+		Push(PB);
+	
+		PC++;
+		Push(PC >> 8);
+		Push(PC & 0xFF);
+	
+		Push(P);
+	
+		P |= IFlag;
+		P &= ~DFlag;
+	
+		PB = 0;
+	
+		PC = NMIVector;
+	
+		cycles += 8;
+
+		if (isWaiting) {
+			isWaiting = false;
+		}
+	}
 }
 
 void CPURicoh::DMA() {
@@ -291,7 +295,6 @@ void CPURicoh::DMA() {
 
 			uint32_t AAdd = DMARegisters[i][2] | (DMARegisters[i][3] << 8) | (DMARegisters[i][4] << 16);
 			uint16_t count = DMARegisters[i][5] | (DMARegisters[i][6] << 8);
-
 			switch (mode) {
 			case 0: {
 				if (!direction) {
@@ -305,9 +308,13 @@ void CPURicoh::DMA() {
 				DMARegisters[i][6] = count >> 8;
 				if (count == 0) {
 					dmaStart = false;
+					DMAEnable = 0;
 					return;
 				}
 				AAdd += (increment == 0) ? 1 : ((increment == 2) ? -1 : 0);
+				DMARegisters[i][2] = AAdd & 0xFF;
+				DMARegisters[i][3] = (AAdd >> 8) & 0xFF;
+				DMARegisters[i][4] = (AAdd >> 16) & 0xFF;
 
 				break;
 			}
@@ -316,6 +323,7 @@ void CPURicoh::DMA() {
 					WriteMemory(BAdd, ReadMemory(AAdd, true), true);
 					if (--count == 0) {
 						dmaStart = false;
+						DMAEnable = 0;
 						return;
 					}
 					WriteMemory(BAdd + 1, ReadMemory(AAdd + 1, true), true);
@@ -325,6 +333,7 @@ void CPURicoh::DMA() {
 					WriteMemory(AAdd, ReadMemory(BAdd, true), true);
 					if (--count == 0) {
 						dmaStart = false;
+						DMAEnable = 0;
 						return;
 					}
 					WriteMemory(AAdd + 1, ReadMemory(BAdd + 1, true), true);
@@ -334,9 +343,13 @@ void CPURicoh::DMA() {
 				DMARegisters[i][6] = count >> 8;
 				if (count == 0) {
 					dmaStart = false;
+					DMAEnable = 0;
 					return;
 				}
 				AAdd += (increment == 0) ? 2 : ((increment == 2) ? -2 : 0);
+				DMARegisters[i][2] = AAdd & 0xFF;
+				DMARegisters[i][3] = (AAdd >> 8) & 0xFF;
+				DMARegisters[i][4] = (AAdd >> 16) & 0xFF;
 
 				break;
 			}
@@ -4259,10 +4272,11 @@ int CPURicoh::Execute() {
 		// WAI
 	case 0xCB:
 
-		std::cout << "WAI not handled" << std::endl;
+		//std::cout << "WAI not handled" << std::endl;
+		isWaiting = true;
 		PC--;
 
-		return 2;
+		return 3;
 
 		// CPY addr
 	case 0xCC: {
@@ -4473,9 +4487,16 @@ int CPURicoh::Execute() {
 		// STP
 	case 0xDB:
 
-		std::cout << "STOP not handled" << std::endl;
+		//std::cout << "STOP not handled" << std::endl;
+		PC = 0x8000; // Perhaps it dies
+		emulationMode = true;
+		SP = 0x01FF;
+		X &= 0xFF;
+		Y &= 0xFF;
+		P = 0x34;
+		// Pseudo restart
 
-		return 2;
+		return 3;
 
 		// JMP [addr]
 	case 0xDC: {

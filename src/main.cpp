@@ -70,9 +70,8 @@ int main(int argc, char* argv[]) {
 
             // Graphics
             SDL_RenderClear(renderer);
-            // TODO:
-            //  SDL_UpdateTexture
-            supaNES->ppu->GetFrame();
+            uint16_t* frame = supaNES->ppu->GetFrame();
+            SDL_UpdateTexture(texture, NULL, frame, supaNES->ppu->GetPitch());
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
         }
@@ -114,7 +113,104 @@ void handleInput() {
                             snesRunning = supaNES->cart->LoadRom(ofn);
                         }
                     }
+                    // Toggle backgrounds
+                    else if (LOWORD(event.syswm.msg->msg.win.wParam) == 3) {
+                        if (!snesRunning) {
+                            continue;
+                        }
 
+                        SDL_SysWMinfo wmInfo;
+                        SDL_VERSION(&wmInfo.version);
+                        SDL_GetWindowWMInfo(win, &wmInfo);
+                        HWND hwnd = wmInfo.info.win.window;
+                        HMENU menu = GetMenu(wmInfo.info.win.window);
+
+                        UINT state = GetMenuState(menu, 3, MF_BYCOMMAND);
+
+                        if (state == MF_CHECKED) {
+                            CheckMenuItem(menu, 3, MF_UNCHECKED);
+                            supaNES->ppu->ToggleBG1(false);
+                        }
+                        else {
+                            CheckMenuItem(menu, 3, MF_CHECKED);
+                            supaNES->ppu->ToggleBG1(true);
+                        }
+                    }
+                    else if (LOWORD(event.syswm.msg->msg.win.wParam) == 4) {
+                        if (!snesRunning) {
+                            continue;
+                        }
+
+                        SDL_SysWMinfo wmInfo;
+                        SDL_VERSION(&wmInfo.version);
+                        SDL_GetWindowWMInfo(win, &wmInfo);
+                        HWND hwnd = wmInfo.info.win.window;
+                        HMENU menu = GetMenu(wmInfo.info.win.window);
+
+                        UINT state = GetMenuState(menu, 4, MF_BYCOMMAND);
+
+                        if (state == MF_CHECKED) {
+                            CheckMenuItem(menu, 4, MF_UNCHECKED);
+                            supaNES->ppu->ToggleBG2(false);
+                        }
+                        else {
+                            CheckMenuItem(menu, 4, MF_CHECKED);
+                            supaNES->ppu->ToggleBG2(true);
+                        }
+                    }
+                    else if (LOWORD(event.syswm.msg->msg.win.wParam) == 5) {
+                        if (!snesRunning) {
+                            continue;
+                        }
+
+                        SDL_SysWMinfo wmInfo;
+                        SDL_VERSION(&wmInfo.version);
+                        SDL_GetWindowWMInfo(win, &wmInfo);
+                        HWND hwnd = wmInfo.info.win.window;
+                        HMENU menu = GetMenu(wmInfo.info.win.window);
+
+                        UINT state = GetMenuState(menu, 5, MF_BYCOMMAND);
+
+                        if (state == MF_CHECKED) {
+                            CheckMenuItem(menu, 5, MF_UNCHECKED);
+                            supaNES->ppu->ToggleBG3(false);
+                        }
+                        else {
+                            CheckMenuItem(menu, 5, MF_CHECKED);
+                            supaNES->ppu->ToggleBG3(true);
+                        }
+                    }
+                    else if (LOWORD(event.syswm.msg->msg.win.wParam) == 6) {
+                        if (!snesRunning) {
+                            continue;
+                        }
+
+                        SDL_SysWMinfo wmInfo;
+                        SDL_VERSION(&wmInfo.version);
+                        SDL_GetWindowWMInfo(win, &wmInfo);
+                        HWND hwnd = wmInfo.info.win.window;
+                        HMENU menu = GetMenu(wmInfo.info.win.window);
+
+                        UINT state = GetMenuState(menu, 6, MF_BYCOMMAND);
+
+                        if (state == MF_CHECKED) {
+                            CheckMenuItem(menu, 6, MF_UNCHECKED);
+                            supaNES->ppu->ToggleBG4(false);
+                        }
+                        else {
+                            CheckMenuItem(menu, 6, MF_CHECKED);
+                            supaNES->ppu->ToggleBG4(true);
+                        }
+                    }
+                    else if (LOWORD(event.syswm.msg->msg.win.wParam) == 7) {
+                    if (!snesRunning) {
+                        continue;
+                    }
+                    // TODO:
+                    // Create new window
+                    // Set texture dimensions as background size
+                    // Update texture
+                    }
                 }
 
                 break;
@@ -125,16 +221,51 @@ void handleInput() {
 
 HMENU CreateMenuBar() {
     HMENU hMenuBar = CreateMenu();
+
+    // File menu
     HMENU hFile = CreateMenu();
     std::wstring sFile = L"File";
     LPCWSTR shFile = sFile.c_str();
     AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hFile, shFile);
+
     std::wstring sLoad = L"Load ROM";
     LPCWSTR shLoad = sLoad.c_str();
     AppendMenu(hFile, MF_STRING, 2, shLoad);
+
     std::wstring sExit = L"Exit";
     LPCWSTR shExit = sExit.c_str();
     AppendMenu(hFile, MF_STRING, 1, shExit);
+
+    // Debug menu
+    HMENU hDebug = CreateMenu();
+    std::wstring sDebug = L"Debug";
+    LPCWSTR shDebug = sDebug.c_str();
+    AppendMenu(hMenuBar, MF_POPUP, (UINT_PTR)hDebug, shDebug);
+
+    HMENU hDBG = CreateMenu();
+    std::wstring sDBG = L"Display BG";
+    LPCWSTR shDBG = sDBG.c_str();
+    AppendMenu(hDebug, MF_POPUP, (UINT_PTR)hDBG, shDBG);
+
+    std::wstring sBG1 = L"BG1";
+    LPCWSTR shBG1 = sBG1.c_str();
+    AppendMenu(hDBG, MF_STRING | MF_CHECKED, 3, shBG1);
+
+    std::wstring sBG2 = L"BG2";
+    LPCWSTR shBG2 = sBG2.c_str();
+    AppendMenu(hDBG, MF_STRING | MF_CHECKED, 4, shBG2);
+
+    std::wstring sBG3 = L"BG3";
+    LPCWSTR shBG3 = sBG3.c_str();
+    AppendMenu(hDBG, MF_STRING | MF_CHECKED, 5, shBG3);
+
+    std::wstring sBG4 = L"BG4";
+    LPCWSTR shBG4 = sBG4.c_str();
+    AppendMenu(hDBG, MF_STRING | MF_CHECKED, 6, shBG4);
+
+    std::wstring sBGTilemap = L"Background Tilemap";
+    LPCWSTR shBGTilemap = sBGTilemap.c_str();
+    AppendMenu(hDebug, MF_POPUP, 7, shBGTilemap);
 
     return hMenuBar;
 }
