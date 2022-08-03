@@ -33,7 +33,6 @@ int CPURicoh::Clock()
 	if (!started) {
 		if (freopen_s(&LOG, "Test.txt", "a", stdout) == NULL) {
 			started = true;
-			WriteMemory(0x0, 0xB5, true); // ?
 		}
 	}
 
@@ -47,7 +46,7 @@ int CPURicoh::Clock()
 		}
 		else {
 			opcode = ReadMemory((PB << 16) | PC++, true);
-			if (debug && !isWaiting) {
+			if (debug /* && !isWaiting*/) {
 				Debug();
 			}
 
@@ -145,7 +144,7 @@ void CPURicoh::Debug() {
 
 	lines++;
 
-	if (lines >= 1053) {
+	if (lines >= 10097) {
 		std::cout << " ";
 		fclose(stdout);
 	}
@@ -201,25 +200,30 @@ uint8_t CPURicoh::ReadCPU(uint32_t add) {
 		if (reg == 0x10) {
 
 			// For Tests (?)
-			if (nmi == 0x42) {
-				nmi = 0xc2;
-				value = nmi;
-			}
-			else if (nmi == 0xc2) {
-				nmi = 0x42;
-				value = nmi;
-			}
+			//if (nmi == 0x42) {
+			//	nmi = 0xc2;
+			//	value = nmi;
+			//}
+			//else if (nmi == 0xc2) {
+			//	nmi = 0x42;
+			//	value = nmi;
+			//}
 
-			//value = nmi & 0x80;
-			//nmi = 0x02;
+			value = nmi & 0x80;
+			nmi = 0x02;
 			//std::cout << "NMI read, interrupt?" << std::endl;
+		}
+		else if (reg == 0x18) {
+			value = joypad1Lo;
+		}
+		else if (reg == 0x19) {
+			value = joypad1Hi;
 		}
 
 	}
 	else if (page == 0x43) {
 		std::cout << "DMA not handled" << std::endl;
 	}
-	//std::cout << std::hex << (int)value << std::endl;
 
 	return value;
 }
@@ -537,7 +541,6 @@ int CPURicoh::Execute() {
 	}
 		// PHP
 	case 0x08:
-
 		Push(P);
 
 		return 3;
@@ -1206,7 +1209,7 @@ int CPURicoh::Execute() {
 	}
 		// PLP
 	case 0x28:
-
+		
 		P = Pull();
 
 		if (P & XFlag) {
@@ -4272,7 +4275,6 @@ int CPURicoh::Execute() {
 		// WAI
 	case 0xCB:
 
-		//std::cout << "WAI not handled" << std::endl;
 		isWaiting = true;
 		PC--;
 
@@ -4487,7 +4489,6 @@ int CPURicoh::Execute() {
 		// STP
 	case 0xDB:
 
-		//std::cout << "STOP not handled" << std::endl;
 		PC = 0x8000; // Perhaps it dies
 		emulationMode = true;
 		SP = 0x01FF;

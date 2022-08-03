@@ -82,31 +82,58 @@ int APU::Execute()
 	}
 
 	// SET1 d.0
-	case 0x02: {	}
+	case 0x02: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.0, r
-	case 0x03: {	}
+	case 0x03: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, d
-	case 0x04: {	}
+	case 0x04: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, !a
-	case 0x05: {	}
+	case 0x05: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, (X)
-	case 0x06: {	}
+	case 0x06: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, [d+X]
-	case 0x07: {	}
+	case 0x07: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, #i
-	case 0x08: {	}
+	case 0x08: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR dd, ds
-	case 0x09: {	}
+	case 0x09: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR1 C, m.b
-	case 0x0A: {	}
+	case 0x0A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ASL d
 	case 0x0B: {
@@ -161,7 +188,10 @@ int APU::Execute()
 	}
 
 	// TSET1 !a
-	case 0x0E: {	}
+	case 0x0E: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BRK
 	case 0x0F: {
@@ -201,31 +231,58 @@ int APU::Execute()
 	}
 
 	// CLR1 d.0
-	case 0x12: {	}
+	case 0x12: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.0, r
-	case 0x13: {	}
+	case 0x13: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, d+X
-	case 0x14: {	}
+	case 0x14: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, !a+X
-	case 0x15: {	}
+	case 0x15: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, !a+Y
-	case 0x16: {	}
+	case 0x16: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR A, [d]+Y
-	case 0x17: {	}
+	case 0x17: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR d, #i
-	case 0x18: {	}
+	case 0x18: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR (X), (Y)
-	case 0x19: {	}
+	case 0x19: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// DECW d
-	case 0x1A: {	}
+	case 0x1A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ASL d+X
 	case 0x1B: {
@@ -294,6 +351,7 @@ int APU::Execute()
 
 		uint16_t newPC = ReadAPUMem(add + X);
 		newPC |= ReadAPUMem(add + X + 1) << 8;
+		std::cout << "JUMP! " << std::hex << (int)newPC << std::endl;
 
 		PC = newPC;
 
@@ -320,31 +378,58 @@ int APU::Execute()
 	}
 
 	// SET1 d.1
-	case 0x22: {	}
+	case 0x22: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.1, r
-	case 0x23: {	}
+	case 0x23: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, d
-	case 0x24: {	}
+	case 0x24: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, !a
-	case 0x25: {	}
+	case 0x25: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, (X)
-	case 0x26: {	}
+	case 0x26: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, [d+X]
-	case 0x27: {	}
+	case 0x27: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, #i
-	case 0x28: {	}
+	case 0x28: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND dd, ds
-	case 0x29: {	}
+	case 0x29: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// OR1 C, /m.b
-	case 0x2A: {	}
+	case 0x2A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ROL d
 	case 0x2B: {
@@ -411,7 +496,10 @@ int APU::Execute()
 	}
 
 	// CBNE d, r
-	case 0x2E: {	}
+	case 0x2E: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BRA r
 	case 0x2F: {
@@ -450,31 +538,58 @@ int APU::Execute()
 	}
 
 	// CLR1 d.1
-	case 0x32: {	}
+	case 0x32: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.1, r
-	case 0x33: {	}
+	case 0x33: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, d+X
-	case 0x34: {	}
+	case 0x34: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, !a+X
-	case 0x35: {	}
+	case 0x35: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, !a+Y
-	case 0x36: {	}
+	case 0x36: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND A, [d]+Y
-	case 0x37: {	}
+	case 0x37: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND d, #i
-	case 0x38: {	}
+	case 0x38: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND (X), (Y)
-	case 0x39: {	}
+	case 0x39: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// INCW d
-	case 0x3A: {	}
+	case 0x3A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ROL d+X
 	case 0x3B: {
@@ -583,31 +698,58 @@ int APU::Execute()
 	}
 
 	// SET1 d.2
-	case 0x42: {	}
+	case 0x42: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.2, r
-	case 0x43: {	}
+	case 0x43: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, d
-	case 0x44: {	}
+	case 0x44: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, !a
-	case 0x45: {	}
+	case 0x45: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, (X)
-	case 0x46: {	}
+	case 0x46: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, [d+X]
-	case 0x47: {	}
+	case 0x47: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, #i
-	case 0x48: {	}
+	case 0x48: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR dd, ds
-	case 0x49: {	}
+	case 0x49: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// AND1 C, m.b
-	case 0x4A: {	}
+	case 0x4A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// LSR d
 	case 0x4B: {
@@ -662,7 +804,10 @@ int APU::Execute()
 	}
 
 	// TCLR1 !a
-	case 0x4E: {	}
+	case 0x4E: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// PCALL u
 	case 0x4F: {
@@ -705,31 +850,58 @@ int APU::Execute()
 	}
 
 	// CLR1 d.2
-	case 0x52: {	}
+	case 0x52: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.2, r
-	case 0x53: {	}
+	case 0x53: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, d+X
-	case 0x54: {	}
+	case 0x54: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, !a+X
-	case 0x55: {	}
+	case 0x55: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, !a+Y
-	case 0x56: {	}
+	case 0x56: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR A, [d]+Y
-	case 0x57: {	}
+	case 0x57: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR d, #i
-	case 0x58: {	}
+	case 0x58: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// EOR (X), (Y)
-	case 0x59: {	}
+	case 0x59: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// CMPW YA, d
-	case 0x5A: {	}
+	case 0x5A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// LSR d+X
 	case 0x5B: {
@@ -822,10 +994,16 @@ int APU::Execute()
 	}
 
 	// SET1 d.3
-	case 0x62: {	}
+	case 0x62: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.3, r
-	case 0x63: {	}
+	case 0x63: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// CMP A, d
 	case 0x64: {
@@ -913,7 +1091,10 @@ int APU::Execute()
 	}
 
 	// AND1 C, /m.b
-	case 0x6A: {	}
+	case 0x6A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ROR d
 	case 0x6B: {
@@ -980,7 +1161,10 @@ int APU::Execute()
 	}
 
 	// DBNZ d, r
-	case 0x6E: {	}
+	case 0x6E: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// RET
 	case 0x6F: {
@@ -1018,10 +1202,16 @@ int APU::Execute()
 	}
 
 	// CLR1 d.3
-	case 0x72: {	}
+	case 0x72: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.3, r
-	case 0x73: {	}
+	case 0x73: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// CMP A, d+X
 	case 0x74: {
@@ -1113,7 +1303,10 @@ int APU::Execute()
 	}
 
 	// ADDW YA, d
-	case 0x7A: {	}
+	case 0x7A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ROR d+X
 	case 0x7B: {
@@ -1221,10 +1414,16 @@ int APU::Execute()
 	}
 
 	// SET1 d.4
-	case 0x82: {	}
+	case 0x82: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.4, r
-	case 0x83: {	}
+	case 0x83: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ADC A, d
 	case 0x84: {
@@ -1328,7 +1527,10 @@ int APU::Execute()
 	}
 
 	// EOR1 C, m.b
-	case 0x8A: {	}
+	case 0x8A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// DEC d
 	case 0x8B: {
@@ -1346,7 +1548,10 @@ int APU::Execute()
 	}
 
 	// DEC !a
-	case 0x8C: {	}
+	case 0x8C: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV Y, #i
 	case 0x8D: {
@@ -1403,10 +1608,16 @@ int APU::Execute()
 	}
 
 	// CLR1 d.4
-	case 0x92: {	}
+	case 0x92: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.4, r
-	case 0x93: {	}
+	case 0x93: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// ADC A, d+X
 	case 0x94: {
@@ -1539,7 +1750,10 @@ int APU::Execute()
 	}
 
 	// SUBW YA, d
-	case 0x9A: {	}
+	case 0x9A: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// DEC d+X
 	case 0x9B: {
@@ -1620,10 +1834,16 @@ int APU::Execute()
 	}
 
 	// SET1 d.5
-	case 0xA2: {	}
+	case 0xA2: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.5, r
-	case 0xA3: {	}
+	case 0xA3: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// SBC A, d
 	case 0xA4: {
@@ -1741,7 +1961,10 @@ int APU::Execute()
 	}
 
 	// MOV1 C, m.b
-	case 0xAA: {	}
+	case 0xAA: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// INC d
 	case 0xAB: {
@@ -1825,10 +2048,16 @@ int APU::Execute()
 	}
 
 	// CLR1 d.5
-	case 0xB2: {	}
+	case 0xB2: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.5, r
-	case 0xB3: {	}
+	case 0xB3: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// SBC A, d+X
 	case 0xB4: {
@@ -2031,7 +2260,10 @@ int APU::Execute()
 	}
 
 	// DAS A
-	case 0xBE: {	}
+	case 0xBE: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV A, (X)+
 	case 0xBF: {
@@ -2067,10 +2299,16 @@ int APU::Execute()
 	}
 
 	// SET1 d.6
-	case 0xC2: {	}
+	case 0xC2: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.6, r
-	case 0xC3: {	}
+	case 0xC3: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV d, A
 	case 0xC4: {
@@ -2136,7 +2374,10 @@ int APU::Execute()
 	}
 
 	// MOV1 m.b, C
-	case 0xCA: {	}
+	case 0xCA: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV d, Y
 	case 0xCB: {
@@ -2218,10 +2459,16 @@ int APU::Execute()
 	}
 
 	// CLR1 d.6
-	case 0xD2: {	}
+	case 0xD2: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.6, r
-	case 0xD3: {	}
+	case 0xD3: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV d+X, A
 	case 0xD4: {
@@ -2332,10 +2579,16 @@ int APU::Execute()
 	}
 
 	// CBNE d+X, r
-	case 0xDE: {	}
+	case 0xDE: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// DAA A
-	case 0xDF: {	}
+	case 0xDF: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// CLRV
 	case 0xE0: {
@@ -2357,10 +2610,16 @@ int APU::Execute()
 	}
 
 	// SET1 d.7
-	case 0xE2: {	}
+	case 0xE2: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBS d.7, r
-	case 0xE3: {	}
+	case 0xE3: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV A, d
 	case 0xE4: {
@@ -2441,7 +2700,10 @@ int APU::Execute()
 	}
 
 	// NOT1 m.b
-	case 0xEA: {	}
+	case 0xEA: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV Y, d
 	case 0xEB: {
@@ -2521,10 +2783,16 @@ int APU::Execute()
 	}
 
 	// CLR1 d.7
-	case 0xF2: {	}
+	case 0xF2: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// BBC d.7, r
-	case 0xF3: {	}
+	case 0xF3: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// MOV A, d+X
 	case 0xF4: {
@@ -2659,7 +2927,10 @@ int APU::Execute()
 	}
 
 	// DBNZ Y, r
-	case 0xFE: {	}
+	case 0xFE: {
+		std::cout << "NO" << std::endl;
+		break;
+	}
 
 	// STOP
 	case 0xFF: {

@@ -5,15 +5,20 @@
 
 #include <iostream>
 #include <commdlg.h>
+#include <chrono>
 
 SDL_Window* win;
 SDL_Renderer* renderer;
 SDL_Texture* texture;
+SDL_Joystick* gameController;
 
 SDL_Event event;
 
 bool running = true;
 bool snesRunning = false;
+
+int cycles = 0;
+std::chrono::steady_clock::time_point start;
 
 SupaNES* supaNES;
 
@@ -23,7 +28,7 @@ HMENU CreateMenuBar();
 int main(int argc, char* argv[]) {
 
     // retutns zero on success else non-zero
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0) {
         printf("error initializing SDL: %s\n", SDL_GetError());
     }
 
@@ -33,7 +38,7 @@ int main(int argc, char* argv[]) {
     SDL_SetWindowResizable(win, SDL_TRUE);
 
     //texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 224);
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555, SDL_TEXTUREACCESS_STREAMING, 256, 224);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR1555, SDL_TEXTUREACCESS_STREAMING, 256, 224);
 
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -50,13 +55,28 @@ int main(int argc, char* argv[]) {
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
+    //Check for joysticks
+    if (SDL_NumJoysticks() < 1)
+    {
+        printf("Warning: No joysticks connected!\n");
+    }
+    else
+    {
+        //Load joystick
+        gameController = SDL_JoystickOpen(0);
+        if (gameController == NULL)
+        {
+            printf("Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError());
+        }
+    }
+
     supaNES = new SupaNES();
 
     while (running) {
 
         // Main Loop
         if (snesRunning) {
-            supaNES->Clock();
+            cycles += supaNES->Clock();
         }
         else {
             // Events management
@@ -64,6 +84,11 @@ int main(int argc, char* argv[]) {
         }
 
         if (snesRunning && supaNES->ppu->IsFrameCompleted()) {
+
+            //while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() < 16.64) {
+            //    
+            //}
+            cycles = 0;// -= 8853;     // CPU Speed / Framerate / 4 (idk why)
 
             // Events management
             handleInput();
@@ -74,8 +99,23 @@ int main(int argc, char* argv[]) {
             SDL_UpdateTexture(texture, NULL, frame, supaNES->ppu->GetPitch());
             SDL_RenderCopy(renderer, texture, NULL, NULL);
             SDL_RenderPresent(renderer);
+
+            start = std::chrono::high_resolution_clock::now();
         }
     }
+
+    //Close game controller
+    SDL_JoystickClose(gameController);
+    gameController = NULL;
+
+    //Destroy window
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(win);
+    win = NULL;
+    renderer = NULL;
+    texture = NULL;
+
     return 0;
 }
 
@@ -86,6 +126,281 @@ void handleInput() {
             case SDL_QUIT: {
                 // handling of close button
                 running = false;
+                break;
+            }
+            case SDL_KEYDOWN: {
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    running = false;
+                }
+                if (!snesRunning) {
+                    continue;
+                }
+                switch (event.key.keysym.sym) {
+                // B Button (PS: cross / XBOX: A)
+                case SDLK_k: {
+                    supaNES->cpu->joypad1Hi |= 0x80;
+                    break;
+                }
+                // A Button (PS: circle / XBOX: B)
+                case SDLK_j: {
+                    supaNES->cpu->joypad1Lo |= 0x80;
+                    break;
+                }
+                // Y Button (PS: square / XBOX: X)
+                case SDLK_i: {
+                    supaNES->cpu->joypad1Hi |= 0x40;
+                    break;
+                }
+                // X Button (PS: triangle / XBOX: Y)
+                case SDLK_u: {
+                    supaNES->cpu->joypad1Lo |= 0x40;
+                    break;
+                }
+                // Select Button
+                case SDLK_q: {
+                    supaNES->cpu->joypad1Hi |= 0x20;
+                    break;
+                }
+                // Start Button
+                case SDLK_e: {
+                    supaNES->cpu->joypad1Hi |= 0x10;
+                    break;
+                }
+                // L Button (PS: L1 / XBOX: LB)
+                case SDLK_o: {
+                    supaNES->cpu->joypad1Lo |= 0x20;
+                    break;
+                }
+                // R Button (PS: R1 / XBOX: RB)
+                case SDLK_p: {
+                    supaNES->cpu->joypad1Lo |= 0x10;
+                    break;
+                }
+                // Up Button
+                case SDLK_w: {
+                    supaNES->cpu->joypad1Hi |= 0x08;
+                    break;
+                }
+                // Down Button
+                case SDLK_s: {
+                    supaNES->cpu->joypad1Hi |= 0x04;
+                    break;
+                }
+                // Left Button
+                case SDLK_a: {
+                    supaNES->cpu->joypad1Hi |= 0x02;
+                    break;
+                }
+                // Right Button
+                case SDLK_d: {
+                    supaNES->cpu->joypad1Hi |= 0x01;
+                    break;
+                }
+                }
+                break;
+            }
+            case SDL_KEYUP: {
+                if (!snesRunning) {
+                    continue;
+                }
+                switch (event.key.keysym.sym) {
+                // B Button (PS: cross / XBOX: A)
+                case SDLK_k: {
+                    supaNES->cpu->joypad1Hi &= ~0x80;
+                    break;
+                }
+                // A Button (PS: circle / XBOX: B)
+                case SDLK_j: {
+                    supaNES->cpu->joypad1Lo &= ~0x80;
+                    break;
+                }
+                // Y Button (PS: square / XBOX: X)
+                case SDLK_i: {
+                    supaNES->cpu->joypad1Hi &= ~0x40;
+                    break;
+                }
+                // X Button (PS: triangle / XBOX: Y)
+                case SDLK_u: {
+                    supaNES->cpu->joypad1Lo &= ~0x40;
+                    break;
+                }
+                // Select Button
+                case SDLK_q: {
+                    supaNES->cpu->joypad1Hi &= ~0x20;
+                    break;
+                }
+                // Start Button
+                case SDLK_e: {
+                    supaNES->cpu->joypad1Hi &= ~0x10;
+                    break;
+                }
+                // L Button (PS: L1 / XBOX: LB)
+                case SDLK_o: {
+                    supaNES->cpu->joypad1Lo &= ~0x20;
+                    break;
+                }
+                // R Button (PS: R1 / XBOX: RB)
+                case SDLK_p: {
+                    supaNES->cpu->joypad1Lo &= ~0x10;
+                    break;
+                }
+                // Up Button
+                case SDLK_w: {
+                    supaNES->cpu->joypad1Hi &= ~0x08;
+                    break;
+                }
+                // Down Button
+                case SDLK_s: {
+                    supaNES->cpu->joypad1Hi &= ~0x04;
+                    break;
+                }
+                // Left Button
+                case SDLK_a: {
+                    supaNES->cpu->joypad1Hi &= ~0x02;
+                    break;
+                }
+                // Right Button
+                case SDLK_d: {
+                    supaNES->cpu->joypad1Hi &= ~0x01;
+                    break;
+                }
+                }
+                break;
+            }
+            case SDL_JOYBUTTONDOWN: {
+                if (!snesRunning) {
+                    continue;
+                }
+                switch (event.jbutton.button) {
+                // B Button (PS: cross / XBOX: A)
+                case 0: {
+                    supaNES->cpu->joypad1Hi |= 0x80;
+                    break;
+                }
+                // A Button (PS: circle / XBOX: B)
+                case 1: {
+                    supaNES->cpu->joypad1Lo |= 0x80;
+                    break;
+                }
+                // Y Button (PS: square / XBOX: X)
+                case 2: {
+                    supaNES->cpu->joypad1Hi |= 0x40;
+                    break;
+                }
+                // X Button (PS: triangle / XBOX: Y)
+                case 3: {
+                    supaNES->cpu->joypad1Lo |= 0x40;
+                    break;
+                }
+                // Select Button
+                case 4: {
+                    supaNES->cpu->joypad1Hi |= 0x20;
+                    break;
+                }
+                // Start Button
+                case 6: {
+                    supaNES->cpu->joypad1Hi |= 0x10;
+                    break;
+                }
+                // L Button (PS: L1 / XBOX: LB)
+                case 9: {
+                    supaNES->cpu->joypad1Lo |= 0x20;
+                    break;
+                }
+                // R Button (PS: R1 / XBOX: RB)
+                case 10: {
+                    supaNES->cpu->joypad1Lo |= 0x10;
+                    break;
+                }
+                // Up Button
+                case 11: {
+                    supaNES->cpu->joypad1Hi |= 0x08;
+                    break;
+                }
+                // Down Button
+                case 12: {
+                    supaNES->cpu->joypad1Hi |= 0x04;
+                    break;
+                }
+                // Left Button
+                case 13: {
+                    supaNES->cpu->joypad1Hi |= 0x02;
+                    break;
+                }
+                // Right Button
+                case 14: {
+                    supaNES->cpu->joypad1Hi |= 0x01;
+                    break;
+                }
+                }
+                break;
+            }
+            case SDL_JOYBUTTONUP: {
+                if (!snesRunning) {
+                    continue;
+                }
+                switch (event.jbutton.button) {
+                    // B Button (PS: cross / XBOX: A)
+                case 0: {
+                    supaNES->cpu->joypad1Hi &= ~0x80;
+                    break;
+                }
+                      // A Button (PS: circle / XBOX: B)
+                case 1: {
+                    supaNES->cpu->joypad1Lo &= ~0x80;
+                    break;
+                }
+                      // Y Button (PS: square / XBOX: X)
+                case 2: {
+                    supaNES->cpu->joypad1Hi &= ~0x40;
+                    break;
+                }
+                      // X Button (PS: triangle / XBOX: Y)
+                case 3: {
+                    supaNES->cpu->joypad1Lo &= ~0x40;
+                    break;
+                }
+                      // Select Button
+                case 4: {
+                    supaNES->cpu->joypad1Hi &= ~0x20;
+                    break;
+                }
+                      // Start Button
+                case 6: {
+                    supaNES->cpu->joypad1Hi &= ~0x10;
+                    break;
+                }
+                      // L Button (PS: L1 / XBOX: LB)
+                case 9: {
+                    supaNES->cpu->joypad1Lo &= ~0x20;
+                    break;
+                }
+                      // R Button (PS: R1 / XBOX: RB)
+                case 10: {
+                    supaNES->cpu->joypad1Lo &= ~0x10;
+                    break;
+                }
+                       // Up Button
+                case 11: {
+                    supaNES->cpu->joypad1Hi &= ~0x08;
+                    break;
+                }
+                       // Down Button
+                case 12: {
+                    supaNES->cpu->joypad1Hi &= ~0x04;
+                    break;
+                }
+                       // Left Button
+                case 13: {
+                    supaNES->cpu->joypad1Hi &= ~0x02;
+                    break;
+                }
+                       // Right Button
+                case 14: {
+                    supaNES->cpu->joypad1Hi &= ~0x01;
+                    break;
+                }
+                }
                 break;
             }
             case SDL_SYSWMEVENT: {
@@ -111,6 +426,8 @@ void handleInput() {
 
                         if (GetOpenFileName(&ofn) == TRUE) {
                             snesRunning = supaNES->cart->LoadRom(ofn);
+                            start = std::chrono::high_resolution_clock::now();
+                            cycles = 0;
                         }
                     }
                     // Toggle backgrounds
@@ -202,15 +519,6 @@ void handleInput() {
                             supaNES->ppu->ToggleBG4(true);
                         }
                     }
-                    else if (LOWORD(event.syswm.msg->msg.win.wParam) == 7) {
-                    if (!snesRunning) {
-                        continue;
-                    }
-                    // TODO:
-                    // Create new window
-                    // Set texture dimensions as background size
-                    // Update texture
-                    }
                 }
 
                 break;
@@ -262,10 +570,6 @@ HMENU CreateMenuBar() {
     std::wstring sBG4 = L"BG4";
     LPCWSTR shBG4 = sBG4.c_str();
     AppendMenu(hDBG, MF_STRING | MF_CHECKED, 6, shBG4);
-
-    std::wstring sBGTilemap = L"Background Tilemap";
-    LPCWSTR shBGTilemap = sBGTilemap.c_str();
-    AppendMenu(hDebug, MF_POPUP, 7, shBGTilemap);
 
     return hMenuBar;
 }

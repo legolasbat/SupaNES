@@ -92,6 +92,9 @@ void PPU::WritePPU(uint32_t add, uint8_t value)
 			BGMode = value;
 			std::cout << std::hex << "Mode: " << (int)BGMode << std::endl;
 		}
+		else if (reg == 0x06) {
+			mosaicReg = value;
+		}
 		else if (reg == 0x07) {
 			BGTileAdd1 = value;
 		}
@@ -109,6 +112,86 @@ void PPU::WritePPU(uint32_t add, uint8_t value)
 		}
 		else if (reg == 0x0C) {
 			BGAdd3_4 = value;
+		}
+		else if (reg == 0x0D) {
+			if (!BG1XScrollWritten) {
+				BG1XScroll = value;
+				BG1XScrollWritten = true;
+			}
+			else {
+				BG1XScroll |= value << 8;
+				BG1XScrollWritten = false;
+			}
+		}
+		else if (reg == 0x0E) {
+			if (!BG1YScrollWritten) {
+				BG1YScroll = value;
+				BG1YScrollWritten = true;
+			}
+			else {
+				BG1YScroll |= value << 8;
+				BG1YScrollWritten = false;
+			}
+		}
+		else if (reg == 0x0F) {
+			if (!BG2XScrollWritten) {
+				BG2XScroll = value;
+				BG2XScrollWritten = true;
+			}
+			else {
+				BG2XScroll |= value << 8;
+				BG2XScrollWritten = false;
+			}
+		}
+		else if (reg == 0x10) {
+			if (!BG2YScrollWritten) {
+				BG2YScroll = value;
+				BG2YScrollWritten = true;
+			}
+			else {
+				BG2YScroll |= value << 8;
+				BG2YScrollWritten = false;
+			}
+		}
+		else if (reg == 0x11) {
+			if (!BG3XScrollWritten) {
+				BG3XScroll = value;
+				BG3XScrollWritten = true;
+			}
+			else {
+				BG3XScroll |= value << 8;
+				BG3XScrollWritten = false;
+			}
+		}
+		else if (reg == 0x12) {
+			if (!BG3YScrollWritten) {
+				BG3YScroll = value;
+				BG3YScrollWritten = true;
+			}
+			else {
+				BG3YScroll |= value << 8;
+				BG3YScrollWritten = false;
+			}
+		}
+		else if (reg == 0x13) {
+			if (!BG4XScrollWritten) {
+				BG4XScroll = value;
+				BG4XScrollWritten = true;
+			}
+			else {
+				BG4XScroll |= value << 8;
+				BG4XScrollWritten = false;
+			}
+		}
+		else if (reg == 0x14) {
+			if (!BG4YScrollWritten) {
+				BG4YScroll = value;
+				BG4YScrollWritten = true;
+			}
+			else {
+				BG4YScroll |= value << 8;
+				BG4YScrollWritten = false;
+			}
 		}
 		// VRAM
 		else if (reg == 0x15) {	// Video Port Control
@@ -182,22 +265,34 @@ void PPU::SetPixel(int X, int Y)
 	SetBGDrop(X, Y);
 	// Render from back to front
 	if (BG4Active && (TM & 0x8)) {
-		SetBGPixel(X, Y, BGTileAdd4, 4, GetColorBPPForBG(4));
+		SetBGPixel(X, Y, BGTileAdd4, 4, GetColorBPPForBG(4), (BGTileAdd4 & 0x1) ? 64 : 32, (BGTileAdd4 & 0x2) ? 64 : 32, BG4XScroll, BG4YScroll);
 	}
 	if (BG3Active && (TM & 0x4)) {
-		SetBGPixel(X, Y, BGTileAdd3, 3, GetColorBPPForBG(3));
+		SetBGPixel(X, Y, BGTileAdd3, 3, GetColorBPPForBG(3), (BGTileAdd3 & 0x1) ? 64 : 32, (BGTileAdd3 & 0x2) ? 64 : 32, BG3XScroll, BG3YScroll);
 	}
 	if (BG2Active && (TM & 0x2)) {
-		SetBGPixel(X, Y, BGTileAdd2, 2, GetColorBPPForBG(2));
+		SetBGPixel(X, Y, BGTileAdd2, 2, GetColorBPPForBG(2), (BGTileAdd2 & 0x1) ? 64 : 32, (BGTileAdd2 & 0x2) ? 64 : 32, BG2XScroll, BG2YScroll);
 	}
 	if (BG1Active && (TM & 0x1)) {
-		SetBGPixel(X, Y, BGTileAdd1, 1, GetColorBPPForBG(1));
+		SetBGPixel(X, Y, BGTileAdd1, 1, GetColorBPPForBG(1), (BGTileAdd1 & 0x1) ? 64 : 32, (BGTileAdd1 & 0x2) ? 64 : 32, BG1XScroll, BG1YScroll);
 	}
 }
 
-void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp)
+void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp, uint8_t XSize, uint8_t YSize, uint16_t XScroll, uint16_t YScroll)
 {
-	uint16_t tile = ((BGAdd & 0x7E) << 8) + ((Y / 8) << 5) + (X / 8); // scroll +(SY ? ((Y & 0x20) << (SX ? 6 : 5)) : 0) + (SX ? ((X & 0x20) << 5) : 0);
+	uint8_t mosaicSize = 0;
+	if (mosaicReg & (0x1 << (BGIndex - 1)) && (mosaicReg & 0xF0) > 0x10) {
+		mosaicSize = ((mosaicReg & 0xF0) >> 4);
+	}
+
+	int XScrolled = (X + XScroll) % (8 * XSize);
+	int YScrolled = (Y + YScroll) % (8 * YSize);
+
+	uint16_t tile = ((BGAdd & 0x7C) << 8)
+		+ ((((XSize == 64) ? (YScrolled % 256) : YScrolled) / 8) << 5)
+		+ ((XScrolled % 256) / 8)
+		+ (XScrolled / 0x100) * 0x400
+		+ (XSize / 64) * ((YScrolled / 0x100) * 0x800);
 	uint16_t tileWord = VRAM[tile];
 
 	uint16_t tileId = tileWord & 0x3ff;			//  mask bits that are for index
@@ -206,8 +301,8 @@ void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp)
 	uint8_t BGFlipX = (tileWord >> 14) & 1;		//  0 - normal, 1 - mirror horizontally
 	uint8_t BGFlipY = (tileWord >> 15) & 1;		//  0 - normal, 1 - mirror vertically
 
-	uint8_t i = Y % 8;
-	uint8_t j = X % 8;
+	uint8_t i = YScrolled % 8;
+	uint8_t j = XScrolled % 8;
 	uint8_t VShift = i + (-i + 7 - i) * BGFlipY;
 	uint8_t HShift = (7 - j) + (2 * j - 7) * BGFlipX;
 	uint16_t tileAddress = 0;
@@ -230,7 +325,7 @@ void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp)
 	
 	if (bpp == BPP::BPP2) {
 		tileAddress = tileOffset + tileId * 0x8 + VShift;
-		pal = GetColor2BPP(tileAddress, BGPaletteN, HShift);
+		pal = GetColor2BPP(tileAddress, BGPaletteN, HShift, BGIndex);
 	}
 	else if (bpp == BPP::BPP4) {
 		tileAddress = tileOffset + tileId * 0x10 + VShift;
@@ -241,7 +336,20 @@ void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp)
 		pal = GetColor8BPP(tileAddress, BGPaletteN, HShift);
 	}
 
-	pixels[(Y * width) + X] = pal;
+	if ((pal & 0x8000) == 0) {
+		if (mosaicSize > 1) {
+			if (Y % mosaicSize == 0 && X % mosaicSize == 0) {
+				pixels[(Y * width) + X] = pal;
+			}
+			else {
+				uint16_t color = pixels[((Y - (Y % mosaicSize)) * width) + (X - (X % mosaicSize))];
+				pixels[(Y * width) + X] = color;
+			}
+		}
+		else {
+			pixels[(Y * width) + X] = pal;
+		}
+	}
 
 	if (started)
 		if (freopen_s(&LOG, "Test.txt", "a", stdout) == NULL) {
@@ -261,7 +369,7 @@ void PPU::SetBGPixel(int X, int Y, uint8_t BGAdd, uint8_t BGIndex, BPP bpp)
 		std::cout << "Priority: " << std::dec << (int)BGPriority << std::endl;
 		std::cout << "hFlip: " << std::dec << (int)BGFlipX << std::endl;
 		std::cout << "vFlip: " << std::dec << (int)BGFlipY << std::endl;
-		//std::cout << std::endl;
+		std::cout << std::endl;
 	}
 }
 
@@ -278,16 +386,16 @@ uint16_t PPU::GetColor(uint8_t id, uint8_t tilePal)
 	return CGRAM[id + tilePal * 4];
 }
 
-uint16_t PPU::GetColor2BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift)
+uint16_t PPU::GetColor2BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift, int BGNumber)
 {
 	uint8_t BGLo = VRAM[charAdd] & 0xff;
 	uint8_t BGHi = VRAM[charAdd] >> 8;
 	uint8_t palIndex = ((BGLo >> HShift) & 1) + (2 * ((BGHi >> HShift) & 1));
 
 	if (palIndex == 0) {
-		return CGRAM[0];
+		return CGRAM[0] | 0x8000;
 	}
-	return CGRAM[palIndex + pal * 4];
+	return CGRAM[palIndex + pal * 4 + (BGNumber - 1) * 32];
 }
 
 uint16_t PPU::GetColor4BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift)
@@ -316,11 +424,6 @@ uint16_t PPU::GetColor8BPP(uint16_t charAdd, uint8_t pal, uint8_t HShift)
 	uint8_t BG8 = VRAM[charAdd + 24] >> 8;
 	uint8_t palIndex = ((BG1 >> HShift) & 1) + (2 * ((BG2 >> HShift) & 1)) + (4 * ((BG3 >> HShift) & 1)) + (8 * ((BG4 >> HShift) & 1)) +
 		(16 * ((BG5 >> HShift) & 1)) + (32 * ((BG6 >> HShift) & 1)) + (64 * ((BG7 >> HShift) & 1)) + (128 * ((BG8 >> HShift) & 1));
-
-	if (debug) {
-		std::cout << "palIndex: " << std::dec << (int)palIndex << std::endl;
-		std::cout << std::endl;
-	}
 	
 	if (palIndex == 0) {
 		return CGRAM[0];

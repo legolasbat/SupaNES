@@ -6,7 +6,6 @@ class SupaNES
 {
 private:
 	Memory* memory;
-	CPURicoh* cpu;
 	APU* apu;
 
 	int64_t scheduler_CPU_SPC700 = 0;
@@ -15,11 +14,12 @@ private:
 
 public:
 	Cartridge* cart;
+	CPURicoh* cpu;
 	PPU* ppu;
 
 	SupaNES();
 
-	void Clock();
+	int Clock();
 
 };
 

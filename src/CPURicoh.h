@@ -146,6 +146,9 @@ public:
 	uint8_t ReadCPU(uint32_t add);
 	void WriteCPU(uint32_t add, uint8_t value);
 
+	uint8_t joypad1Lo = 0;
+	uint8_t joypad1Hi = 0;
+
 private:
 
 	std::map<int, const char*> opText;
